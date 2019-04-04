@@ -2,45 +2,44 @@ package org.chepiov.tomodoro
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.{ActorMaterializer, Materializer}
-import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.functor._
+import org.chepiov.tomodoro.api.Pomodoro
+import org.chepiov.tomodoro.impl.{PomodoroImpl, TelegramImpl}
+import pureconfig.generic.auto._
+import pureconfig.module.catseffect._
 
 object Main extends IOApp {
   import JsonSupport._
 
-  def route(updates: Updates): Route =
+  def route[F[_]](pomodoro: Pomodoro[F]): Route =
     path("") {
       complete("Hello World")
     } ~
-      pathPrefix("updates") {
-        post {
-          entity(as[BotUpdate]) { update =>
-            complete(updates.add(update).as("").unsafeToFuture())
+    pathPrefix("updates") {
+      post {
+        entity(as[BotUpdate]) { update =>
+          update.message.foreach { message =>
+            pomodoro.handleMessage(message)
           }
+          complete(StatusCodes.NoContent)
         }
       }
+    }
 
   implicit val system: ActorSystem        = ActorSystem("tomodoro")
   implicit val materializer: Materializer = ActorMaterializer()
 
   def run(args: List[String]): IO[ExitCode] =
     for {
-      updates  <- Updates(Nil)
-      appRoute = route(updates)
-      _        <- IO.fromFuture(IO(Http().bindAndHandle(appRoute, "0.0.0.0", 8080)))
+      telegramConfig <- loadConfigF[IO, TelegramConfig]("telegram")
+      httpConfig     <- loadConfigF[IO, HttpConfig]("http")
+      botApi         <- TelegramImpl[IO](telegramConfig)
+      pomodoroApi    = new PomodoroImpl[IO](botApi)
+      appRoute       = route(pomodoroApi)
+      _              <- IO.fromFuture(IO(Http().bindAndHandle(appRoute, httpConfig.interface, httpConfig.port)))
     } yield ExitCode.Success
-}
-
-final class Updates(ref: Ref[IO, List[BotUpdate]]) {
-  def allUpdates: IO[List[BotUpdate]]  = ref.get
-  def add(update: BotUpdate): IO[Unit] = ref.update(update :: _)
-}
-
-case object Updates {
-  def apply(initial: List[BotUpdate]): IO[Updates] =
-    for (ref <- Ref[IO].of(initial)) yield new Updates(ref)
 }
