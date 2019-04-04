@@ -1,6 +1,6 @@
-ThisBuild / name := "tomodoro"
-ThisBuild / version := "0.1"
-ThisBuild / scalaVersion := "2.12.8"
+name := "tomodoro"
+version := "0.1"
+scalaVersion := "2.12.8"
 
 enablePlugins(JavaAppPackaging)
 
