@@ -1,1 +1,1 @@
-web: target/universal/stage/bin/tomodoro-bot -Dhttp.port=${PORT}
+web: target/universal/stage/bin/tomodoro -Dhttp.port=${PORT}
