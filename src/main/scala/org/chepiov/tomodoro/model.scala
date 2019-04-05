@@ -21,7 +21,7 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val messageFormat: RootJsonFormat[BotMessage] = jsonFormat(BotMessage.apply, "message_id", "chat", "text")
   implicit val updateFormat: RootJsonFormat[BotUpdate]   = jsonFormat(BotUpdate.apply, "update_id", "message")
   implicit val userFormat: RootJsonFormat[BotUser] =
-    jsonFormat(BotUser.apply, "id", "is_bot", "first_name", "last_name", "user_name", "language_code")
+    jsonFormat(BotUser.apply, "id", "is_bot", "first_name", "last_name", "username", "language_code")
   implicit def responseFormat[A: RootJsonFormat]: RootJsonFormat[BotResponse[A]] = jsonFormat2(BotResponse.apply[A])
 
 }
