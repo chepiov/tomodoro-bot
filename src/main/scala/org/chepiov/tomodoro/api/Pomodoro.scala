@@ -3,7 +3,7 @@ package org.chepiov.tomodoro.api
 import org.chepiov.tomodoro.{BotMessage, BotUser}
 
 trait Pomodoro[F[_]] {
-  def handleMessage(message: BotMessage): Unit
+  def handleMessage(message: BotMessage): F[Unit]
   def getInfo: F[BotUser]
 }
 

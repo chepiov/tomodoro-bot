@@ -6,7 +6,7 @@ import cats.syntax.option._
 import org.scalatest.{Matchers, WordSpec}
 
 class MainSpec extends WordSpec with Matchers with ScalatestRouteTest {
-/*  "The updates API" should {
+  /*  "The updates API" should {
     "accept help command" in {
       val t = for {
         updates    <- Updates(Nil)
