@@ -15,20 +15,20 @@ import pureconfig.module.catseffect._
 object Main extends IOApp {
   import JsonSupport._
 
-  def route[F[_]](pomodoro: Pomodoro[F]): Route =
+  def route(pomodoro: Pomodoro[IO]): Route =
     path("") {
-      complete("Hello World")
+      complete(pomodoro.getInfo.unsafeToFuture())
     } ~
-    pathPrefix("updates") {
-      post {
-        entity(as[BotUpdate]) { update =>
-          update.message.foreach { message =>
-            pomodoro.handleMessage(message)
+      pathPrefix("updates") {
+        post {
+          entity(as[BotUpdate]) { update =>
+            update.message.foreach { message =>
+              pomodoro.handleMessage(message)
+            }
+            complete(StatusCodes.NoContent)
           }
-          complete(StatusCodes.NoContent)
         }
       }
-    }
 
   implicit val system: ActorSystem        = ActorSystem("tomodoro")
   implicit val materializer: Materializer = ActorMaterializer()
