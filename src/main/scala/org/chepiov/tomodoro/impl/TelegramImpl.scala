@@ -38,6 +38,7 @@ class TelegramImpl[F[_]: Sync: LiftIO](config: TelegramConfig)(implicit actorSys
   def getMe: F[BotUser] =
     for {
       req <- Sync[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(uri + "/getMe")))
+      _   <- Sync[F].delay(println(req))
       res <- LiftIO[F].liftIO(IO.fromFuture(IO(Http().singleRequest(req))))
       _   <- Sync[F].delay(println(res))
       me  <- LiftIO[F].liftIO(IO.fromFuture(IO(Unmarshal(res).to[BotResponse[BotUser]])))
