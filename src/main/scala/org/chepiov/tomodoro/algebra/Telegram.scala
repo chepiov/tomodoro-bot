@@ -1,4 +1,4 @@
-package org.chepiov.tomodoro.api
+package org.chepiov.tomodoro.algebra
 
 import org.chepiov.tomodoro.BotUser
 

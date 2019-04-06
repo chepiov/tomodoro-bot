@@ -1,14 +1,15 @@
-package org.chepiov.tomodoro.impl
+package org.chepiov.tomodoro.interpreter
 
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import io.chrisdavenport.log4cats.Logger
-import org.chepiov.tomodoro.api.{Pomodoro, Telegram}
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.chepiov.tomodoro.algebra.{Pomodoro, Telegram}
 import org.chepiov.tomodoro.{BotMessage, BotUser}
 
-class PomodoroImpl[F[_]: Sync](telegram: Telegram[F], logger: Logger[F]) extends Pomodoro[F] {
+class PomodoroInterpreter[F[_]: Sync](telegram: Telegram[F], logger: Logger[F]) extends Pomodoro[F] {
 
   override def handleMessage(message: BotMessage): F[Unit] = {
     message.text.getOrElse("") match {
@@ -32,7 +33,7 @@ class PomodoroImpl[F[_]: Sync](telegram: Telegram[F], logger: Logger[F]) extends
     telegram.sendMessage(chatId, Pomodoro.helpMessage, messageId.some)
 }
 
-object PomodoroImpl {
-  def apply[F[_]: Sync](telegram: Telegram[F], logger: Logger[F]): F[Pomodoro[F]] =
-    Sync[F].delay(new PomodoroImpl(telegram, logger))
+object PomodoroInterpreter {
+  def apply[F[_]: Sync](telegram: Telegram[F]): F[Pomodoro[F]] =
+    Sync[F].delay(new PomodoroInterpreter(telegram, Slf4jLogger.getLogger[F]))
 }

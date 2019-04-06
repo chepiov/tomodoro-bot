@@ -2,47 +2,35 @@ package org.chepiov.tomodoro
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.{ActorMaterializer, Materializer}
-import cats.effect.{ExitCode, IO, IOApp}
-import io.chrisdavenport.log4cats.Logger
+import cats.effect.{ExitCode, IO, IOApp, Sync}
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import org.chepiov.tomodoro.api.Pomodoro
-import org.chepiov.tomodoro.impl.{PomodoroImpl, TelegramImpl}
+import org.chepiov.tomodoro.JsonSupport._
+import org.chepiov.tomodoro.interpreter.{PomodoroInterpreter, TelegramInterpreter}
+import org.chepiov.tomodoro.programs.RouteHandler
+import org.chepiov.tomodoro.typeclasses.ToFuture
+import org.chepiov.tomodoro.typeclasses.ToFuture.ops._
 import pureconfig.generic.auto._
 import pureconfig.module.catseffect._
 
 object Main extends IOApp {
-  import JsonSupport._
 
-  def route(pomodoro: Pomodoro[IO], logger: Logger[IO]): Route =
+  def route[F[_]: Sync: ToFuture](routeHandler: RouteHandler[F]): Route = {
+    import routeHandler._
+
     path("") {
-      complete(pomodoro.getInfo.unsafeToFuture())
+      complete(handleInfo.toFuture)
     } ~
       pathPrefix("updates") {
         post {
           entity(as[BotUpdate]) { update =>
-            complete(handleUpdate(pomodoro, update, logger).unsafeToFuture())
+            complete(handleUpdate(update).toFuture)
           }
         }
       }
-
-  private def handleUpdate(pomodoro: Pomodoro[IO], update: BotUpdate, logger: Logger[IO]): IO[StatusCode] =
-    for {
-      _ <- logger.debug(s"Received update: $update")
-      result <- if (update.message.isDefined)
-                 pomodoro
-                   .handleMessage(update.message.get)
-                   .map(_ => StatusCodes.NoContent)
-                   .handleErrorWith { e =>
-                     for {
-                       _ <- logger.error(e)("Error during handling update")
-                     } yield StatusCodes.InternalServerError
-                   } else IO.pure(StatusCodes.NoContent)
-    } yield result
-
+  }
   implicit val system: ActorSystem        = ActorSystem("tomodoro")
   implicit val materializer: Materializer = ActorMaterializer()
 
@@ -50,10 +38,12 @@ object Main extends IOApp {
     for {
       telegramConfig <- loadConfigF[IO, TelegramConfig]("telegram")
       httpConfig     <- loadConfigF[IO, HttpConfig]("http")
+      telegram       = TelegramInterpreter(telegramConfig)
+      pomodoro       <- PomodoroInterpreter[IO](telegram)
+      routeHandler   <- RouteHandler(pomodoro)
       logger         = Slf4jLogger.getLogger[IO]
-      telegram       <- TelegramImpl[IO](telegramConfig, logger)
-      pomodoro       <- PomodoroImpl[IO](telegram, logger)
-      appRoute       = route(pomodoro, logger)
+      _              <- logger.debug(s"Starting server on: ${httpConfig.interface}:${httpConfig.port}")
+      appRoute       = route(routeHandler)
       _              <- IO.fromFuture(IO(Http().bindAndHandle(appRoute, httpConfig.interface, httpConfig.port)))
     } yield ExitCode.Success
 }

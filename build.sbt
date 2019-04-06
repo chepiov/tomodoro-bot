@@ -4,6 +4,7 @@ scalaVersion := "2.12.8"
 
 enablePlugins(JavaAppPackaging)
 
+libraryDependencies += "com.github.mpilquist"  %% "simulacrum"             % "0.15.0"
 libraryDependencies += "com.typesafe.akka"     %% "akka-stream"            % "2.5.22"
 libraryDependencies += "com.typesafe.akka"     %% "akka-persistence-query" % "2.5.22"
 libraryDependencies += "com.typesafe.akka"     %% "akka-http"              % "10.1.8"
@@ -11,15 +12,17 @@ libraryDependencies += "com.typesafe.akka"     %% "akka-http-spray-json"   % "10
 libraryDependencies += "org.typelevel"         %% "cats-effect"            % "1.2.0"
 libraryDependencies += "com.github.pureconfig" %% "pureconfig"             % "0.10.2"
 libraryDependencies += "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.10.2"
-libraryDependencies += "io.chrisdavenport"     %% "log4cats-core"          % "0.3.0"
-libraryDependencies += "io.chrisdavenport"     %% "log4cats-extras"        % "0.3.0"
-libraryDependencies += "io.chrisdavenport"     %% "log4cats-slf4j"         % "0.3.0"
-libraryDependencies += "ch.qos.logback"        % "logback-classic"         % "0.9.28"
+libraryDependencies += "io.chrisdavenport"     %% "log4cats-core"          % "0.3.0-M2"
+libraryDependencies += "io.chrisdavenport"     %% "log4cats-extras"        % "0.3.0-M2"
+libraryDependencies += "io.chrisdavenport"     %% "log4cats-slf4j"         % "0.3.0-M2"
+libraryDependencies += "ch.qos.logback"        % "logback-classic"         % "1.2.3"
 libraryDependencies += "org.scalactic"         %% "scalactic"              % "3.0.5"
 libraryDependencies += "org.scalatest"         %% "scalatest"              % "3.0.5" % "test"
 libraryDependencies += "org.scalacheck"        %% "scalacheck"             % "1.14.0" % "test"
-libraryDependencies += "com.typesafe.akka"     %% "akka-stream-testkit"    % "2.5.22"
-libraryDependencies += "com.typesafe.akka"     %% "akka-http-testkit"      % "10.1.8"
+libraryDependencies += "com.typesafe.akka"     %% "akka-stream-testkit"    % "2.5.22" % "test"
+libraryDependencies += "com.typesafe.akka"     %% "akka-http-testkit"      % "10.1.8" % "test"
+
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 scalacOptions ++= Seq(
   "-deprecation", // Emit warning and location for usages of deprecated APIs.

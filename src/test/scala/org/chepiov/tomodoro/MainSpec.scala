@@ -1,29 +1,10 @@
 package org.chepiov.tomodoro
 
-//import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import cats.syntax.option._
 import org.scalatest.{Matchers, WordSpec}
 
-class MainSpec extends WordSpec with Matchers with ScalatestRouteTest {
-  /*  "The updates API" should {
-    "accept help command" in {
-      val t = for {
-        updates    <- Updates(Nil)
-        appRoutes  = Main.route(updates)
-        httpEntity = HttpEntity(ContentTypes.`application/json`, messages.helpRequest)
-        result     = Post("/updates", httpEntity) ~> appRoutes
-        allUpdates <- updates.allUpdates
-      } yield {
-        result ~> check {
-          responseAs[String] should be("")
-          allUpdates.contains(messages.helpRequestObject) should be(true)
-        }
-      }
-      t.unsafeRunSync()
-    }
-  }*/
-}
+class MainSpec extends WordSpec with Matchers with ScalatestRouteTest {}
 
 object messages {
   val helpRequest: String =
