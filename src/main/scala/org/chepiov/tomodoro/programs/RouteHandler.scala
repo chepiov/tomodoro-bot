@@ -6,14 +6,12 @@ import cats.effect.Sync
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import org.chepiov.tomodoro.algebra.Pomodoro
-import org.chepiov.tomodoro.{BotUpdate, BotUser}
+import org.chepiov.tomodoro.algebra.{Logger, Pomodoro}
+import org.chepiov.tomodoro.algebra.Telegram.{TUpdate, TUser}
 
 class RouteHandler[F[_]: Sync](pomodoro: Pomodoro[F], logger: Logger[F]) {
 
-  def handleUpdate(update: BotUpdate): F[StatusCode] =
+  def handleUpdate(update: TUpdate): F[StatusCode] =
     for {
       _ <- logger.debug(s"Received update: $update")
       result <- if (update.message.isDefined)
@@ -27,7 +25,7 @@ class RouteHandler[F[_]: Sync](pomodoro: Pomodoro[F], logger: Logger[F]) {
                    } else Monad[F].pure[StatusCode](StatusCodes.NoContent)
     } yield result
 
-  def handleInfo: F[BotUser] =
+  def handleInfo: F[TUser] =
     for {
       _    <- logger.debug("Received bot info request")
       info <- pomodoro.getInfo
@@ -35,6 +33,6 @@ class RouteHandler[F[_]: Sync](pomodoro: Pomodoro[F], logger: Logger[F]) {
 }
 
 object RouteHandler {
-  def apply[F[_]: Sync](pomodoro: Pomodoro[F]): F[RouteHandler[F]] =
-    Sync[F].delay(new RouteHandler(pomodoro, Slf4jLogger.getLogger[F]))
+  def apply[F[_]: Sync](pomodoro: Pomodoro[F], logger: Logger[F]): F[RouteHandler[F]] =
+    Sync[F].delay(new RouteHandler(pomodoro, logger))
 }
