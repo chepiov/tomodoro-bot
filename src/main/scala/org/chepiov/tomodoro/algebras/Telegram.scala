@@ -1,4 +1,6 @@
-package org.chepiov.tomodoro.algebra
+package org.chepiov.tomodoro.algebras
+
+import org.chepiov.tomodoro.algebras.User.UserSettings
 
 trait Telegram[F[_]] {
   import Telegram._
@@ -6,15 +8,12 @@ trait Telegram[F[_]] {
   def help(chatId: Long, messageIdReplyTo: Option[Long] = None): F[Unit]
   def run(chatId: Long): F[Unit]
   def end(chatId: Long): F[Unit]
-  def settings(chatId: Long, settings: Settings, messageIdReplyTo: Option[Long] = None): F[Unit]
+  def settings(chatId: Long, settings: UserSettings, messageIdReplyTo: Option[Long] = None): F[Unit]
   def custom(chatId: Long, message: String, messageIdReplyTo: Option[Long] = None): F[Unit]
   def me(): F[TUser]
 }
 
 case object Telegram {
-
-  final case class Info(pomodoro: Int, remaining: Int)
-  final case class Settings(shortBreak: Int, longBreak: Int, amount: Int)
 
   final case class TUpdate(updateId: Long, message: Option[TMessage])
   final case class TMessage(messageId: Long, chat: TChat, text: Option[String])
@@ -54,7 +53,7 @@ case object Telegram {
     | Pomodoro ended.
   """.stripMargin
 
-  def settingsMessage(settings: Settings): String =
+  def settingsMessage(settings: UserSettings): String =
     s"""
       | Short break: ${settings.shortBreak} 
       | Long break:  ${settings.longBreak} 

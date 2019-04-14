@@ -1,7 +1,7 @@
 package org.chepiov.tomodoro
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import org.chepiov.tomodoro.algebra.Telegram._
+import org.chepiov.tomodoro.algebras.Telegram._
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {

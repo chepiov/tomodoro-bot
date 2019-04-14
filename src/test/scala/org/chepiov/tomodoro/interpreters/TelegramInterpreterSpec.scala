@@ -7,8 +7,8 @@ import cats.effect._
 import cats.effect.concurrent._
 import cats.syntax.option._
 import org.chepiov.tomodoro.TomodoroSpec
-import org.chepiov.tomodoro.algebra.Telegram.Settings
-import org.chepiov.tomodoro.algebra.{Logger, Telegram}
+import org.chepiov.tomodoro.algebras.User.UserSettings
+import org.chepiov.tomodoro.algebras.{Logger, Telegram}
 import org.chepiov.tomodoro.interpreters.TestTelegramInterpreter.RequestDesc
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -48,9 +48,9 @@ class TelegramInterpreterSpec
     }
 
     "send settings" in {
-      val (chatId, text, _) = runTelegram(telegram => telegram.settings(1, Settings(1, 2, 3)))
+      val (chatId, text, _) = runTelegram(telegram => telegram.settings(1, UserSettings(20, 1, 2, 3)))
       chatId should be(1)
-      text should be(Telegram.settingsMessage(Settings(1, 2, 3)))
+      text should be(Telegram.settingsMessage(UserSettings(20, 1, 2, 3)))
     }
   }
 

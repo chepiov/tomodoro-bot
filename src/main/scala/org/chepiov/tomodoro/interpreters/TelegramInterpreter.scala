@@ -9,8 +9,9 @@ import akka.stream.{ActorMaterializer, Materializer}
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import org.chepiov.tomodoro.algebra.Telegram._
-import org.chepiov.tomodoro.algebra.{Logger, Telegram}
+import org.chepiov.tomodoro.algebras.Telegram._
+import org.chepiov.tomodoro.algebras.User.UserSettings
+import org.chepiov.tomodoro.algebras.{Logger, Telegram}
 import org.chepiov.tomodoro.typeclasses.FromFuture
 
 class TelegramInterpreter[F[_]: Sync: FromFuture](config: TelegramConfig, logger: Logger[F])(
@@ -31,7 +32,7 @@ class TelegramInterpreter[F[_]: Sync: FromFuture](config: TelegramConfig, logger
   override def end(chatId: Long): F[Unit] =
     sendMessage(chatId, endedMessage)
 
-  override def settings(chatId: Long, settings: Settings, messageIdReplyTo: Option[Long] = None): F[Unit] =
+  override def settings(chatId: Long, settings: UserSettings, messageIdReplyTo: Option[Long] = None): F[Unit] =
     sendMessage(chatId, settingsMessage(settings), messageIdReplyTo)
 
   override def custom(chatId: Long, message: String, messageIdReplyTo: Option[Long] = None): F[Unit] =
@@ -58,17 +59,18 @@ class TelegramInterpreter[F[_]: Sync: FromFuture](config: TelegramConfig, logger
   def sendMessage(chatId: Long, text: String, messageIdReplyTo: Option[Long] = None): F[Unit] =
     for {
       request  <- createRequest(chatId, text, messageIdReplyTo)
-      _        <- logger.debug(s"[$chatId] Sending message: $request")
+      _        <- logger.debug(s"[$chatId] Sending message")
       response <- FromFuture[F].fromFuture(Sync[F].delay(Http().singleRequest(request)))
-      _        <- logger.debug(s"[$chatId] Send message result: $response")
+      _        <- logger.debug(s"[$chatId] Send message result status: ${response.status}")
       _        <- Sync[F].delay(response.discardEntityBytes())
     } yield ()
 }
 
-object TelegramInterpreter {
+case object TelegramInterpreter {
   def apply[F[_]: Sync: FromFuture](config: TelegramConfig, logger: Logger[F])(
       implicit actorSystem: ActorSystem
-  ): Telegram[F] =
-    new TelegramInterpreter[F](config, logger)
+  ): F[Telegram[F]] =
+    Sync[F].delay(new TelegramInterpreter[F](config, logger))
 }
+
 final case class TelegramConfig(token: String, host: String = "api.telegram.org", scheme: String = "https")

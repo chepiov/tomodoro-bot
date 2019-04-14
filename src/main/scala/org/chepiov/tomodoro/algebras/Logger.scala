@@ -1,4 +1,4 @@
-package org.chepiov.tomodoro.algebra
+package org.chepiov.tomodoro.algebras
 
 trait Logger[F[_]] {
   def info(message: => String): F[Unit]

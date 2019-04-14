@@ -7,13 +7,13 @@
         </encoder>
     </appender>
 
-    <logger name="user-actor" level="${LOGLEVEL:-DEBUG}"/>
-    <logger name="users-actor" level="${LOGLEVEL:-DEBUG}"/>
+    <logger name="user-actor" level="DEBUG"/>
+    <logger name="users-actor" level="DEBUG"/>
     <logger name="akka" level="INFO"/>
     <logger name="com.typesafe" level="INFO"/>
     <logger name="org.mongodb" level="WARN"/>
 
-    <root level="${LOGLEVEL:-DEBUG}">
+    <root level="DEBUG">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

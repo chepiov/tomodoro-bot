@@ -1,7 +1,7 @@
 package org.chepiov.tomodoro
 
 import cats._
-import org.chepiov.tomodoro.algebra.Logger
+import org.chepiov.tomodoro.algebras.Logger
 import org.chepiov.tomodoro.typeclasses.FromFuture
 import org.slf4j.LoggerFactory
 
