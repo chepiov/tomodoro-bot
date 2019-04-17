@@ -40,7 +40,7 @@ object Main extends IOApp {
       users                             <- UsersInterpreter[IO](userChat, system)
       manager                           <- ManagerInterpreter[IO](users)
       tomodoro                          <- TomodoroInterpreter[IO](manager, telegram)
-      updateRoute                       = resourceHttp.updateRoute("update", tomodoro)
+      updateRoute                       = resourceHttp.updateRoute(s"${telegramConfig.token}", tomodoro)
       infoRoute                         = resourceHttp.infoRoute("info", tomodoro)
       _                                 <- runServer(updateRoute ~ infoRoute)
     } yield ExitCode.Success
