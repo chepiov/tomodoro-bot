@@ -30,6 +30,8 @@ libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all"           
 libraryDependencies += "org.iq80.leveldb"          % "leveldb"                       % "0.11"
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
+addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.0-M4")
 
 scalacOptions ++= Seq(
   "-deprecation", // Emit warning and location for usages of deprecated APIs.

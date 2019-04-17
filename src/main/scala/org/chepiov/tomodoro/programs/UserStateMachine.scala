@@ -78,7 +78,7 @@ case object UserStateMachine {
 
   private object invalidTime {
     def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, s), c: Command) if c.time < s.start                        => true
+      case (UserState(_, s), c: Command) if c.time < s.startTime                        => true
       case (UserState(_, s: SuspendedUserStatus), c: Command) if c.time < s.suspend => true
       case _                                                                        => false
     }

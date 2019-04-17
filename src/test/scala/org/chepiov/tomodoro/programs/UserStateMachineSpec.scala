@@ -18,7 +18,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
   property("Command with invalid time must not change state") {
     forAll(invalidTimeCommandAndStateGen) {
       case (command, initial) =>
-        whenever(command.time < initial.status.start) {
+        whenever(command.time < initial.status.startTime) {
           val (state, answer) = advance(command).run(initial).value
           state shouldBe initial
           answer shouldBe InvalidTime
@@ -44,8 +44,8 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
           state.settings shouldBe initial.settings
           answer shouldBe Ok
 
-          state.status.asInstanceOf[Working].end shouldBe (command.time + toSeconds(state.settings.duration))
-          state.status.start shouldBe command.time
+          state.status.asInstanceOf[Working].endTime shouldBe (command.time + toSeconds(state.settings.duration))
+          state.status.startTime shouldBe command.time
 
           state.status.remaining shouldBe (initial.status.remaining - 1)
           state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -62,10 +62,10 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         answer shouldBe Ok
 
         if (state.status.remaining == 0)
-          state.status.asInstanceOf[Breaking].end shouldBe (command.time + toSeconds(state.settings.longBreak))
+          state.status.asInstanceOf[Breaking].endTime shouldBe (command.time + toSeconds(state.settings.longBreak))
         else
-          state.status.asInstanceOf[Breaking].end shouldBe (command.time + toSeconds(state.settings.shortBreak))
-        state.status.start shouldBe command.time
+          state.status.asInstanceOf[Breaking].endTime shouldBe (command.time + toSeconds(state.settings.shortBreak))
+        state.status.startTime shouldBe command.time
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -82,10 +82,10 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         answer shouldBe Ok
 
         val initialStatus = initial.status.asInstanceOf[WorkSuspended]
-        val worked        = initialStatus.suspend - initialStatus.start
+        val worked        = initialStatus.suspend - initialStatus.startTime
         val end           = command.time + (toSeconds(state.settings.duration) - worked)
-        state.status.asInstanceOf[Working].end shouldBe end
-        state.status.start shouldBe command.time
+        state.status.asInstanceOf[Working].endTime shouldBe end
+        state.status.startTime shouldBe command.time
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -101,14 +101,14 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         answer shouldBe Ok
 
         val initialStatus = initial.status.asInstanceOf[BreakSuspended]
-        val suspended     = initialStatus.suspend - initialStatus.start
+        val suspended     = initialStatus.suspend - initialStatus.startTime
         val end =
           if (state.status.remaining == 0)
             command.time + toSeconds(state.settings.longBreak) - suspended
           else
             command.time + toSeconds(state.settings.shortBreak) - suspended
-        state.status.asInstanceOf[Breaking].end shouldBe end
-        state.status.start shouldBe command.time
+        state.status.asInstanceOf[Breaking].endTime shouldBe end
+        state.status.startTime shouldBe command.time
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -143,7 +143,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         state.settings shouldBe initial.settings
         answer shouldBe Ok
 
-        state.status.start shouldBe command.time
+        state.status.startTime shouldBe command.time
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -158,7 +158,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         state.settings shouldBe initial.settings
         answer shouldBe Ok
 
-        state.status.start shouldBe command.time
+        state.status.startTime shouldBe command.time
 
         if (initial.status.remaining == 0)
           state.status.remaining shouldBe state.settings.amount
@@ -215,7 +215,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         answer shouldBe Ok
 
         state.status.asInstanceOf[WorkSuspended].suspend shouldBe command.time
-        state.status.start shouldBe initial.status.start
+        state.status.startTime shouldBe initial.status.startTime
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -231,7 +231,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         answer shouldBe Ok
 
         state.status.asInstanceOf[BreakSuspended].suspend shouldBe command.time
-        state.status.start shouldBe initial.status.start
+        state.status.startTime shouldBe initial.status.startTime
 
         state.status.remaining shouldBe initial.status.remaining
         state.status.remaining should (be <= state.settings.amount and be >= 0)
@@ -303,7 +303,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
           state.settings shouldBe initial.settings
           answer shouldBe Ok
 
-          state.status.start shouldBe command.time
+          state.status.startTime shouldBe command.time
 
           state.status.remaining shouldBe state.settings.amount
         }
@@ -411,7 +411,7 @@ case object UserStateMachineSpec {
   val invalidTimeCommandAndStateGen: Gen[(Command, UserState)] =
     for {
       cmd   <- anyCommandGen
-      state <- anyStateGen(Long.MaxValue).filter(_.status.start > cmd.time)
+      state <- anyStateGen(Long.MaxValue).filter(_.status.startTime > cmd.time)
     } yield (cmd, state)
 
   val invalidTimeCommandAndSuspendedStateGen: Gen[(Command, UserState)] =

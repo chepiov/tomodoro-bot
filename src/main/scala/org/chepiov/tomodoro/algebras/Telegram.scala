@@ -1,62 +1,129 @@
 package org.chepiov.tomodoro.algebras
 
-import org.chepiov.tomodoro.algebras.User.UserSettings
+import simulacrum.typeclass
 
+/**
+  * Represents Telegram API.
+  *
+  * @see [[https://core.telegram.org/bots/api]]
+  * @tparam F effect
+  */
+@typeclass
 trait Telegram[F[_]] {
+
   import Telegram._
 
-  def help(chatId: Long, messageIdReplyTo: Option[Long] = None): F[Unit]
-  def run(chatId: Long): F[Unit]
-  def end(chatId: Long): F[Unit]
-  def settings(chatId: Long, settings: UserSettings, messageIdReplyTo: Option[Long] = None): F[Unit]
-  def custom(chatId: Long, message: String, messageIdReplyTo: Option[Long] = None): F[Unit]
-  def me(): F[TUser]
+  /**
+    * sendMessage method.
+    *
+    * @param message to send
+    * @see [[https://core.telegram.org/bots/api#sendmessage]]
+    */
+  def sendMessage(message: TSendMessage): F[Unit]
+
+  /**
+    * answerCallbackQuery method.
+    *
+    * @param answer to send
+    * @see [[https://core.telegram.org/bots/api#answercallbackquery]]
+    */
+  def answerCallbackQuery(answer: TCallbackAnswer): F[Unit]
+
+  /**
+    * getMe method.
+    *
+    * @return bot information
+    * @see https://core.telegram.org/bots/api#getme
+    */
+  def getMe: F[TUser]
 }
 
 case object Telegram {
 
-  final case class TUpdate(updateId: Long, message: Option[TMessage])
-  final case class TMessage(messageId: Long, chat: TChat, text: Option[String])
-  final case class TChat(id: Long)
+  /**
+    * Telegram configuration.
+    *
+    * @param token  Telegram API token
+    * @param host   Telegram API host
+    * @param scheme Telegram API scheme
+    */
+  final case class TelegramConfig(token: String, host: String, scheme: String)
+
+  /**
+    *  @see [[https://core.telegram.org/bots/api#user]].
+    */
   final case class TUser(
       id: Long,
       isBot: Boolean,
       firstName: String,
       lastName: Option[String],
-      userName: Option[String],
-      languageCode: Option[String]
+      username: Option[String]
   )
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#chat]].
+    */
+  final case class TChat(id: Long)
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#message]].
+    */
+  final case class TMessage(
+      messageId: Long,
+      chat: TChat,
+      text: Option[String]
+  )
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#getting-updates]].
+    */
+  final case class TUpdate(
+      updateId: Long,
+      message: Option[TMessage]
+  )
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#sendmessage]] reply_markup field.
+    */
+  sealed trait TReplyMarkup extends Serializable with Product
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#sendmessage]].
+    */
+  final case class TSendMessage(
+      chatId: Long,
+      text: String,
+      replyMarkup: Option[TReplyMarkup] = None
+  )
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#keyboardbutton]]
+    */
+  final case class TKeyboardButton(text: String)
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#inlinekeyboardbutton]]
+    */
+  final case class TInlineKeyboardButton(text: String)
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#replykeyboardmarkup]]
+    */
+  final case class TReplyKeyboardMarkup(keyboard: List[List[TKeyboardButton]]) extends TReplyMarkup
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#inlinekeyboardmarkup]]
+    */
+  final case class TInlineKeyboardMarkup(inlineKeyboard: List[List[TInlineKeyboardButton]]) extends TReplyMarkup
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#answercallbackquery]]
+    */
+  final case class TCallbackAnswer(callbackQueryId: String)
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#available-methods]]
+    */
   final case class TResponse[A](ok: Boolean, result: A)
 
-  val helpMessage: String =
-    """
-      |*Commands:*
-      |`/help` - this command
-      |`/run` - starts pomodoro
-      |`/pause` - pauses current pomodoro
-      |`/stop` - stops current pomodoro
-      |`/rerun` - stops current pomodoro and starts new one
-      |`/set p <time>` - sets duration of pomodoro (in minutes)
-      |`/set l <time>` - sets duration of long break (in minutes)
-      |`/set s <time>` - sets duration of short break (in minutes)
-      |`/set c <pomodoro_amount>` - sets amount of pomodoros between the long breaks
-      |`/stats <period>` - shows statistic
-    """.stripMargin
-
-  val ranMessage: String =
-    """
-    | Pomodoro started.
-  """.stripMargin
-
-  val endedMessage: String =
-    """
-    | Pomodoro ended.
-  """.stripMargin
-
-  def settingsMessage(settings: UserSettings): String =
-    s"""
-      | Short break: ${settings.shortBreak} 
-      | Long break:  ${settings.longBreak} 
-      | Amount:      ${settings.amount} 
-    """.stripMargin
 }

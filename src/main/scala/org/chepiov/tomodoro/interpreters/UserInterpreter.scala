@@ -1,27 +1,41 @@
 package org.chepiov.tomodoro.interpreters
 
-import akka.actor.{ActorRef, ActorSystem}
-import akka.pattern.ask
-import akka.util.Timeout
-import cats.effect.Sync
+import akka.actor.ActorRef
+import cats.Monad
+import cats.effect.Async
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import io.chrisdavenport.log4cats.Logger
+import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, QueryMsg}
 import org.chepiov.tomodoro.algebras.User
 import org.chepiov.tomodoro.algebras.User._
-import org.chepiov.tomodoro.typeclasses.FromFuture
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
-
-class UserInterpreter[F[_]: Sync: FromFuture](userActor: ActorRef)(implicit system: ActorSystem) extends User[F] {
-  implicit val timeout: Timeout     = Timeout(5.seconds)
-  implicit val ec: ExecutionContext = system.dispatcher
+class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) extends User[F] {
 
   override def advance(cmd: UserCommand): F[Unit] =
-    FromFuture[F].fromFuture(Sync[F].delay((userActor ? cmd).map(_ => ())))
+    for {
+      _ <- Logger[F].debug(s"s[$chatId] Advancing user, command: $cmd")
+      ack <- Async[F].async[Unit] { k =>
+              userActor ! CommandMsg(cmd, () => k(Right(())))
+            }
+    } yield ack
+
   override def info(query: UserInfoQuery): F[Unit] =
-    FromFuture[F].fromFuture(Sync[F].delay((userActor ? query).map(_ => ())))
+    for {
+      _ <- Logger[F].debug(s"s[$chatId] Querying user, query: $query")
+      ack <- Async[F].async[Unit] { k =>
+              userActor ! QueryMsg(query, () => k(Right(())))
+            }
+    } yield ack
 }
 
 case object UserInterpreter {
-  def apply[F[_]: Sync: FromFuture](userActor: ActorRef)(implicit system: ActorSystem): F[User[F]] =
-    Sync[F].delay(new UserInterpreter(userActor))
+  def apply[I[_]: Monad, F[_]: Logger: Async](
+      chatId: Long,
+      userActor: ActorRef
+  ): I[User[F]] =
+    for {
+      _ <- Monad[I].unit
+      u = new UserInterpreter[F](chatId, userActor)
+    } yield u
 }

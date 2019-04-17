@@ -1,9 +1,8 @@
-package org.chepiov.tomodoro.interpreters.actors
+package org.chepiov.tomodoro.actors
 
 import java.time.OffsetDateTime
 
-import akka.actor.{ActorSelection, Props, Timers}
-import akka.event.Logging
+import akka.actor.{ActorLogging, ActorSelection, Props, Timers}
 import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras.Users.defaultUserSettings
@@ -12,20 +11,23 @@ import org.chepiov.tomodoro.programs.UserStateMachine
 import scala.concurrent.duration._
 import scala.math.max
 
-class UserActor(chatId: Long, chat: ActorSelection, timeUnit: TimeUnit, snapShotInterval: Int)
-    extends Timers with PersistentActor {
+class UserActor(
+    chatId: Long,
+    userChat: ActorSelection,
+    timeUnit: TimeUnit,
+    defaultSettings: UserSettings,
+    snapShotInterval: Int
+) extends Timers with PersistentActor with ActorLogging {
   import UserActor._
   import UserStateMachine._
 
-  val log = Logging(context.system.eventStream, "user-actor")
-
   //noinspection ActorMutableStateInspection
-  private var state: UserState = UserState(defaultUserSettings, WaitingWork(defaultUserSettings.amount, now))
+  private var state: UserState = UserState(defaultSettings, WaitingWork(defaultSettings.amount, now))
 
   override def persistenceId: String = chatId.toString
 
   override def receiveCommand: Receive = {
-    case cmd: Command =>
+    case CommandMsg(cmd, ask) =>
       advance(cmd, timeUnit).run(state).value match {
         case (s, a) =>
           timerState(s.status)
@@ -34,16 +36,17 @@ class UserActor(chatId: Long, chat: ActorSelection, timeUnit: TimeUnit, snapShot
             state = evt.state
             if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
               saveSnapshot(state)
-            chat ! a
-            context.sender() ! accepted
+            userChat ! a
+            ask()
           }
       }
-    case GetState =>
+    case QueryMsg(GetState, ask) =>
       log.debug(s"[$chatId] State requested")
-      context.sender() ! accepted
-    case GetHelp =>
+      userChat ! state
+      ask()
+    case QueryMsg(GetHelp, ask) =>
       log.debug(s"[$chatId] Help requested")
-      context.sender() ! accepted
+      ask()
   }
 
   override def receiveRecover: Receive = {
@@ -59,8 +62,8 @@ class UserActor(chatId: Long, chat: ActorSelection, timeUnit: TimeUnit, snapShot
     status match {
       case s: FiniteUserStatus =>
         val currentTime = now
-        val time        = if (s.end < currentTime) currentTime else s.end
-        val duration    = max(s.end - currentTime, 0)
+        val time        = if (s.endTime < currentTime) currentTime else s.endTime
+        val duration    = max(s.endTime - currentTime, 0)
         timers.startSingleTimer(timerKey, Finish(time), FiniteDuration(duration, SECONDS))
       case _ => timers.cancel(timerKey)
     }
@@ -68,8 +71,17 @@ class UserActor(chatId: Long, chat: ActorSelection, timeUnit: TimeUnit, snapShot
 
 case object UserActor {
 
-  def props(chatId: Long, chat: ActorSelection, timeUnit: TimeUnit = MINUTES, snapshotInterval: Int = 1000): Props =
-    Props(new UserActor(chatId, chat, timeUnit, snapshotInterval))
+  def props(
+      chatId: Long,
+      chat: ActorSelection,
+      timeUnit: TimeUnit = MINUTES,
+      defaultSettings: UserSettings = defaultUserSettings,
+      snapshotInterval: Int = 1000
+  ): Props =
+    Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
+
+  final case class CommandMsg(cmd: Command, ask: () => Unit)
+  final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
 
   final case class UserEvent(chatId: Long, state: UserState)
 
@@ -77,5 +89,5 @@ case object UserActor {
 
   private val timerKey: String = "FINISH"
 
-  val accepted = "accepted"
+  val accepted: String = "accepted"
 }

@@ -1,37 +1,39 @@
 package org.chepiov.tomodoro.interpreters
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.pattern.ask
-import akka.util.Timeout
-import cats.effect.Sync
-import org.chepiov.tomodoro.algebras.{Messenger, User, Users}
-import org.chepiov.tomodoro.interpreters.actors.UsersActor
-import org.chepiov.tomodoro.typeclasses.{FromFuture, ToFuture}
+import cats.effect.Async
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{Applicative, Id}
+import io.chrisdavenport.log4cats.Logger
+import org.chepiov.tomodoro.actors.UsersActor
+import org.chepiov.tomodoro.actors.UsersActor.GetUser
+import org.chepiov.tomodoro.algebras.{ToFuture, User, UserChat, Users}
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
+class UsersInterpreter[F[_]: Logger: Async](usersActor: ActorRef) extends Users[F] {
 
-class UsersInterpreter[F[_]: Sync: FromFuture: ToFuture](messenger: Messenger[F])(
-    implicit system: ActorSystem
-) extends Users[F] {
-  implicit val ec: ExecutionContext = system.dispatcher
-  implicit val timeout: Timeout     = Timeout(5.seconds)
-
-  private val usersActor = system.actorOf(UsersActor.props(messenger), "users")
-
-  override def getOrCreateUser(chatId: Long): F[User[F]] = {
-    println(usersActor)
-    FromFuture[F].fromFuture {
-      Sync[F].delay {
-        (usersActor ? chatId).mapTo[ActorRef].map(r => new UserInterpreter[F](r))
-      }
-    }
-  }
+  override def getOrCreateUser(chatId: Long): F[User[F]] =
+    for {
+      _ <- Logger[F].debug(s"[$chatId] Searching user")
+      user <- Async[F].async[User[F]] { k =>
+               usersActor ! GetUser(chatId, ref => k(Right(UserInterpreter[Id, F](chatId, ref))))
+             }
+    } yield user
 }
 
 case object UsersInterpreter {
-  def apply[F[_]: Sync: FromFuture: ToFuture](messenger: Messenger[F])(
-      implicit actorSystem: ActorSystem
-  ): F[Users[F]] =
-    Sync[F].delay(new UsersInterpreter(messenger))
+  def apply[I[_]: Applicative, F[_]: Logger: Async: ToFuture](
+      userChat: UserChat[F],
+      actorSystem: ActorSystem
+  ): I[Users[F]] = {
+    for {
+      _          <- Applicative[I].unit
+      usersActor = actorSystem.actorOf(UsersActor.props(userChat), "users")
+    } yield new UsersInterpreter(usersActor)
+  }
+
+  def apply[F[_]: Logger: Async: ToFuture](
+      userChat: UserChat[F],
+      actorSystem: ActorSystem
+  ): F[Users[F]] = apply[F, F](userChat, actorSystem)
 }

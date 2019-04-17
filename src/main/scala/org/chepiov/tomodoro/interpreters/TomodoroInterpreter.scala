@@ -1,62 +1,56 @@
 package org.chepiov.tomodoro.interpreters
 
-import java.time.OffsetDateTime
-
-import cats.Monad
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import org.chepiov.tomodoro.algebras.Telegram.TMessage
-import org.chepiov.tomodoro.algebras.User._
-import org.chepiov.tomodoro.algebras.{Logger, Tomodoro, Users}
+import cats.{Monad, MonadError}
+import io.chrisdavenport.log4cats.Logger
+import org.chepiov.tomodoro.algebras.Telegram._
+import org.chepiov.tomodoro.algebras.{Manager, Telegram, Tomodoro}
 
-class TomodoroInterpreter[F[_]: MError](users: Users[F], logger: Logger[F]) extends Tomodoro[F] {
-  import TomodoroInterpreter._
+class TomodoroInterpreter[F[_]: Logger: MonadError[?[_], Throwable]](manager: Manager[F], telegram: Telegram[F])
+    extends Tomodoro[F] {
 
-  override def handleMessage(message: TMessage): F[Boolean] = {
-    val r = message.text.getOrElse("") match {
-      case "/help" =>
-        for {
-          _    <- logger.debug("Received help request message")
-          user <- users.getOrCreateUser(message.chat.id)
-          _    <- user.info(GetHelp)
-        } yield true
-      case "/continue" =>
-        for {
-          _    <- logger.debug(s"[${message.chat.id}] Received continue request message")
-          user <- users.getOrCreateUser(message.chat.id)
-          _    <- user.advance(Continue(now))
-        } yield true
-      case "/suspend" =>
-        for {
-          _    <- logger.debug(s"[${message.chat.id}] Received suspend request message")
-          user <- users.getOrCreateUser(message.chat.id)
-          _    <- user.advance(Suspend(now))
-        } yield true
-      case "/stop" =>
-        for {
-          _    <- logger.debug(s"[${message.chat.id}] Received stop request message")
-          user <- users.getOrCreateUser(message.chat.id)
-          _    <- user.advance(Stop(now))
-        } yield true
-      case m =>
-        for {
-          _    <- logger.warn(s"[${message.chat.id}] Received unknown message: $m")
-          user <- users.getOrCreateUser(message.chat.id)
-          _    <- user.info(GetHelp)
-        } yield true
-    }
-    r handleErrorWith { e =>
+  override def handleUpdate(update: TUpdate): F[Unit] = {
+    val result = for {
+      _ <- Logger[F].debug(s"Received update: $update")
+      r <- if (update.message.isDefined)
+            manager.decide(update.message.get)
+          else
+            for {
+              u <- Logger[F].debug("Empty update")
+            } yield u
+    } yield r
+    result.handleErrorWith { e =>
       for {
-        _ <- logger.error(e)(s"[${message.chat.id}] Error during handling message ")
-      } yield false
+        _ <- Logger[F].error(e)("Error during handling update")
+        r <- e.raiseError[F, Unit]
+      } yield r
     }
   }
+  override def getInfo: F[TUser] =
+    for {
+      _ <- Logger[F].debug("Received info request")
+      r <- telegram.getMe
+    } yield r
+
+  override def setWebHook(updateUrl: String): F[Unit] = ???
+
+  override def deleteWebHook(): F[Unit] = ???
 }
 
-object TomodoroInterpreter {
-  def apply[F[_]: MError](users: Users[F], logger: Logger[F]): F[Tomodoro[F]] =
-    Monad[F].pure { new TomodoroInterpreter(users, logger) }
+case object TomodoroInterpreter {
+  def apply[I[_]: Monad, F[_]: Logger: MonadError[?[_], Throwable]](
+      manager: Manager[F],
+      telegram: Telegram[F]
+  ): I[Tomodoro[F]] =
+    for {
+      _ <- Monad[I].unit
+      t = new TomodoroInterpreter[F](manager, telegram)
+    } yield t
 
-  private def now: Long = OffsetDateTime.now().toEpochSecond
+  def apply[F[_]: Logger: MonadError[?[_], Throwable]](
+      manager: Manager[F],
+      telegram: Telegram[F]
+  ): F[Tomodoro[F]] = apply[F, F](manager, telegram)
 }
