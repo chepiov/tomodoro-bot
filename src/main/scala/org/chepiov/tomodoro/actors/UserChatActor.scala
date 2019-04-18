@@ -3,7 +3,7 @@ package org.chepiov.tomodoro.actors
 import akka.actor.{Actor, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
-import org.chepiov.tomodoro.actors.UserActor.{MessageToUser, MessageToUserConfirm}
+import org.chepiov.tomodoro.actors.UserActor.{ChatMsg, ChatMsgConfirm}
 import org.chepiov.tomodoro.algebras.ToFuture.ops._
 import org.chepiov.tomodoro.algebras.{ToFuture, UserChat}
 
@@ -16,12 +16,12 @@ class UserChatActor[F[_]: ToFuture](chatId: Long, userChat: UserChat[F]) extends
   implicit val timeout: Timeout     = 5.seconds
 
   override def receive: Receive = {
-    case a: MessageToUser =>
+    case a: ChatMsg =>
       userChat
         .sayTo(chatId, a.msg)
         .toFuture
         .filter(identity)
-        .map(_ => MessageToUserConfirm(a.deliveryId)) pipeTo sender()
+        .map(_ => ChatMsgConfirm(a.deliveryId)) pipeTo sender()
       ()
   }
 }

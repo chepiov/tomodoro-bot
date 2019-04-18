@@ -8,7 +8,7 @@ import java.time.OffsetDateTime
 import akka.actor.{ActorIdentity, ActorSystem, Identify}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, MessageToUser}
+import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, ChatMsg}
 import org.chepiov.tomodoro.algebras.User._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -63,7 +63,7 @@ class UserActorSpec
       @volatile var c = false
       userActor ! CommandMsg(Continue(currentTime), () => c = true)
       awaitCond(c)
-      messengerActor.expectMsgType[MessageToUser]
+      messengerActor.expectMsgType[ChatMsg]
     }
   }
 }

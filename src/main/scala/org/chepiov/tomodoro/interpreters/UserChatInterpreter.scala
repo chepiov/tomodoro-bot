@@ -12,13 +12,13 @@ class UserChatInterpreter[F[_]: Logger: MonadError[?[_], Throwable]](telegram: T
 
   override def sayTo(chatId: Long, msg: TSendMessage): F[Boolean] = {
     val result = for {
-      _ <- Logger[F].debug(s"[$chatId] Message: $msg")
+      _ <- Logger[F].debug(s"[$chatId] Saying to chat")
       r <- telegram.sendMessage(msg)
     } yield r
 
     result.map(_ => true).handleErrorWith { e =>
       for {
-        _ <- Logger[F].error(e)(s"Error during saying to chat: $chatId")
+        _ <- Logger[F].error(e)(s"[$chatId] Error during saying to chat")
       } yield false
     }
   }

@@ -32,11 +32,11 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
   override def sendMessage(message: TSendMessage): F[Unit] =
     for {
       request  <- marshal(message, "sendMessage")
-      _        <- Logger[F].debug(s"[${message.chatId}] Sending message: $request")
+      _        <- Logger[F].debug(s"[${message.chatId}] sendMessage method call")
       response <- getResponse(request)
       _        <- checkResponse(response, "sendMessage")
       _        <- discard(response)
-      _        <- Logger[F].debug(s"[${message.chatId}] Send message result status: ${response.status}")
+      _        <- Logger[F].debug(s"[${message.chatId}] sendMessage result status: ${response.status}")
 
     } yield ()
 
@@ -45,10 +45,11 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
   override def getMe: F[TUser] =
     for {
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
-      _        <- Logger[F].debug(s"Getting info about me, request: $request")
+      _        <- Logger[F].debug(s"getMe method call")
       response <- getResponse(request)
       _        <- Logger[F].debug(s"$response")
       _        <- checkResponse(response, "getMe")
+      _        <- Logger[F].debug(s"getMe result status: ${response.status}")
       resp     <- unmarshal[TResponse[TUser]](response)
     } yield resp.result
 
