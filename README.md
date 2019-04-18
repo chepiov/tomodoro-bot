@@ -3,4 +3,8 @@
 [![CircleCI](https://circleci.com/gh/chepiov/tomodoro-bot.svg?style=shield)](https://circleci.com/gh/chepiov/tomodoro-bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://raw.githubusercontent.com/chepiov/tomodoro-bot/master/LICENSE)
 
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
+
 Telegram bot for the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique)
