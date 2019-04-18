@@ -34,9 +34,9 @@ class TomodoroInterpreter[F[_]: Logger: MonadError[?[_], Throwable]](manager: Ma
       r <- telegram.getMe
     } yield r
 
-  override def setWebHook(updateUrl: String): F[Unit] = ???
+  override def setWebHook(updateUrl: String): F[Unit] = new NotImplementedError("setWebHook").raiseError
 
-  override def deleteWebHook(): F[Unit] = ???
+  override def deleteWebHook(): F[Unit] = new NotImplementedError("deleteWebHook").raiseError
 }
 
 case object TomodoroInterpreter {

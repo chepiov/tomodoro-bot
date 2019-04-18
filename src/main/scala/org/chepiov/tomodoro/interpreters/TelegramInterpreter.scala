@@ -47,7 +47,6 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
       _        <- Logger[F].debug(s"getMe method call")
       response <- getResponse(request)
-      _        <- Logger[F].debug(s"$response")
       _        <- checkResponse(response, "getMe")
       _        <- Logger[F].debug(s"getMe result status: ${response.status}")
       resp     <- unmarshal[TResponse[TUser]](response)
@@ -115,8 +114,10 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
   implicit val replyKeyboardMarkup: RootJsonFormat[TReplyKeyboardMarkup]   = jsonFormat1(TReplyKeyboardMarkup)
   implicit val inlineKeyboardButton: RootJsonFormat[TInlineKeyboardButton] = jsonFormat1(TInlineKeyboardButton)
   implicit val inlineKeyboardMarkup: RootJsonFormat[TInlineKeyboardMarkup] = jsonFormat1(TInlineKeyboardMarkup)
+
   implicit val userFormat: RootJsonFormat[TUser] =
     jsonFormat(TUser.apply, "id", "is_bot", "first_name", "last_name", "username")
+
   implicit def responseFormat[A: RootJsonFormat]: RootJsonFormat[TResponse[A]] =
     jsonFormat2(TResponse.apply[A])
 
@@ -131,11 +132,14 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
 
     override def read(json: JsValue): TReplyMarkup = {
       val fields = json.asJsObject().fields
-      if (fields.contains("keyboard"))
-        TReplyKeyboardMarkup(fields("keyboard").convertTo[List[List[TKeyboardButton]]])
-      else if (fields.contains("inline_keyboard"))
-        TInlineKeyboardMarkup(fields("keyboard").convertTo[List[List[TInlineKeyboardButton]]])
-      else throw DeserializationException("Unknown keyboard markup")
+      fields match {
+        case _ if fields.contains("keyboard") =>
+          TReplyKeyboardMarkup(fields("keyboard").convertTo[List[List[TKeyboardButton]]])
+        case _ if fields.contains("inline_keyboard") =>
+          TInlineKeyboardMarkup(fields("keyboard").convertTo[List[List[TInlineKeyboardButton]]])
+        case _ =>
+          throw DeserializationException("Unknown keyboard markup")
+      }
     }
   }
 
