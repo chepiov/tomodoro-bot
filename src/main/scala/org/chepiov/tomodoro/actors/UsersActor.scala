@@ -1,27 +1,50 @@
 package org.chepiov.tomodoro.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.SupervisorStrategy.Restart
+import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
+import akka.pattern.{BackoffOpts, BackoffSupervisor}
 import org.chepiov.tomodoro.algebras.{ToFuture, UserChat}
+
+import scala.concurrent.duration._
 
 class UsersActor[F[_]: ToFuture](chat: UserChat[F]) extends Actor with ActorLogging {
   import UsersActor._
   import context._
 
-  override def receive: Receive = behavior(Map())
+  override def receive: Receive = behavior(Map(), Map())
 
-  private def behavior(users: Map[Long, (ActorRef, ActorRef)]): Receive = {
-    case GetUser(chatId, ack) if users.contains(chatId) =>
-      val (userActor, _) = users(chatId)
+  private def behavior(chatIdToUser: Map[Long, (ActorRef, ActorRef)], userToChatId: Map[ActorRef, Long]): Receive = {
+    case GetUser(chatId, ack) if chatIdToUser.contains(chatId) =>
+      val (userActor, _) = chatIdToUser(chatId)
       log.debug(s"[$chatId] returning existed user: ${userActor.path}")
       ack(userActor)
     case GetUser(chatId, ack) =>
-      val chatActor = actorOf(UserChatActor.props(chatId, chat), s"chat-$chatId")
-      val userActor = actorOf(UserActor.props(chatId, system.actorSelection(chatActor.path)), s"user-$chatId")
-      watch(chatActor)
-      watch(userActor)
+      val (userActor, chatActor) = createUser(chatId)
       log.debug(s"[$chatId] [re]creating user: ${userActor.path}")
-      become(behavior(users + ((chatId, (userActor, chatActor)))))
+      become(behavior(chatIdToUser + ((chatId, (userActor, chatActor))), userToChatId + ((userActor, chatId))))
       ack(userActor)
+  }
+
+  private def createUser(chatId: Long): (ActorRef, ActorRef) = {
+    val chatActor = actorOf(UserChatActor.props(chatId, chat), s"chat-$chatId")
+
+    val userActorProps = UserActor.props(chatId, system.actorSelection(chatActor.path))
+    val userActorSupervisorProps = BackoffSupervisor.props(
+      BackoffOpts.onStop(
+        userActorProps,
+        childName = s"user-$chatId",
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      )
+    )
+    val userActorSupervisor = context.actorOf(userActorSupervisorProps, name = s"user-supervisor-$chatId")
+
+    (userActorSupervisor, chatActor)
+  }
+
+  override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(loggingEnabled = true) {
+    case _ => Restart
   }
 }
 
