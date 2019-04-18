@@ -21,6 +21,6 @@
   },
   "addons": [
     "heroku-postgresql:hobby-dev",
-    "heroku addons:create mongolab:sandbox"
+    "mongolab:sandbox"
   ]
 }
