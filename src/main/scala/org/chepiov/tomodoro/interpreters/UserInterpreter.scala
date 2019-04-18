@@ -14,7 +14,7 @@ class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) ex
 
   override def advance(cmd: UserCommand): F[Unit] =
     for {
-      _ <- Logger[F].debug(s"s[$chatId] Advancing user, command: $cmd")
+      _ <- Logger[F].debug(s"[$chatId] Advancing user, command: $cmd")
       ack <- Async[F].async[Unit] { k =>
               userActor ! CommandMsg(cmd, () => k(Right(())))
             }

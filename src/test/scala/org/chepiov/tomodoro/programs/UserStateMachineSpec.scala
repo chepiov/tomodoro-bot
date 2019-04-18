@@ -1,6 +1,7 @@
 package org.chepiov.tomodoro.programs
 
 import cats.data.State
+import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.User._
 import org.scalacheck.Gen
 import org.scalatest.prop.PropertyChecks
@@ -11,7 +12,7 @@ import scala.concurrent.duration._
 class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks with OptionValues {
   import UserStateMachineSpec._
 
-  private def advance(command: Command): State[UserState, Answer] = UserStateMachine.advance(command, MINUTES)
+  private def advance(command: Command): State[UserState, Option[TSendMessage]] = UserStateMachine.advance(1L, command, MINUTES)
 
   private def toSeconds(duration: Int): Long = FiniteDuration(duration.toLong, MINUTES).toSeconds
 
@@ -21,7 +22,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         whenever(command.time < initial.status.startTime) {
           val (state, answer) = advance(command).run(initial).value
           state shouldBe initial
-          answer shouldBe InvalidTime
+          answer shouldBe empty
         }
     }
   }
@@ -31,7 +32,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe InvalidTime
+        answer shouldBe empty
     }
   }
 
@@ -42,7 +43,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
           val (state, answer) = advance(command).run(initial).value
           state.status shouldBe a[Working]
           state.settings shouldBe initial.settings
-          answer shouldBe Ok
+          answer shouldBe 'defined
 
           state.status.asInstanceOf[Working].endTime shouldBe (command.time + toSeconds(state.settings.duration))
           state.status.startTime shouldBe command.time
@@ -59,7 +60,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[Breaking]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         if (state.status.remaining == 0)
           state.status.asInstanceOf[Breaking].endTime shouldBe (command.time + toSeconds(state.settings.longBreak))
@@ -79,7 +80,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[Working]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         val initialStatus = initial.status.asInstanceOf[WorkSuspended]
         val worked        = initialStatus.suspend - initialStatus.startTime
@@ -98,7 +99,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[Breaking]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         val initialStatus = initial.status.asInstanceOf[BreakSuspended]
         val suspended     = initialStatus.suspend - initialStatus.startTime
@@ -120,7 +121,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe AlreadyInProgress
+        answer shouldBe 'defined
     }
   }
 
@@ -130,7 +131,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         whenever(initial.status.remaining == 0) {
           val (state, answer) = advance(command).run(initial).value
           state shouldBe initial
-          answer shouldBe IllegalState
+          answer shouldBe empty
         }
     }
   }
@@ -141,7 +142,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[WaitingBreak]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         state.status.startTime shouldBe command.time
 
@@ -156,7 +157,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[WaitingWork]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         state.status.startTime shouldBe command.time
 
@@ -173,7 +174,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe empty
     }
   }
 
@@ -182,7 +183,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe empty
     }
   }
 
@@ -192,7 +193,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         whenever(initial.status.remaining > 0) {
           val (state, answer) = advance(command).run(initial).value
           state shouldBe initial
-          answer shouldBe NotYetInProgress
+          answer shouldBe empty
         }
     }
   }
@@ -202,7 +203,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe empty
     }
   }
 
@@ -212,7 +213,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[WorkSuspended]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         state.status.asInstanceOf[WorkSuspended].suspend shouldBe command.time
         state.status.startTime shouldBe initial.status.startTime
@@ -228,7 +229,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         val (state, answer) = advance(command).run(initial).value
         state.status shouldBe a[BreakSuspended]
         state.settings shouldBe initial.settings
-        answer shouldBe Ok
+        answer shouldBe 'defined
 
         state.status.asInstanceOf[BreakSuspended].suspend shouldBe command.time
         state.status.startTime shouldBe initial.status.startTime
@@ -239,40 +240,40 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
   }
 
   property("Suspend must not change nothing for WorkSuspended") {
-    forAll(commandAndSuspendedStateGen(Finish, WorkSuspended)) {
+    forAll(commandAndSuspendedStateGen(Suspend, WorkSuspended)) {
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe 'defined
     }
   }
 
   property("Suspend must not change nothing for BreakSuspended") {
-    forAll(commandAndSuspendedStateGen(Finish, BreakSuspended)) {
+    forAll(commandAndSuspendedStateGen(Suspend, BreakSuspended)) {
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe 'defined
     }
   }
 
   property("Suspend must not change nothing for WaitingWork") {
-    forAll(commandAndStateGen(Finish, WaitingWork)) {
+    forAll(commandAndStateGen(Suspend, WaitingWork)) {
       case (command, initial) =>
         whenever(initial.status.remaining > 0) {
           val (state, answer) = advance(command).run(initial).value
           state shouldBe initial
-          answer shouldBe NotYetInProgress
+          answer shouldBe 'defined
         }
     }
   }
 
   property("Suspend must not change nothing for WaitingBreak") {
-    forAll(commandAndStateGen(Finish, WaitingBreak)) {
+    forAll(commandAndStateGen(Suspend, WaitingBreak)) {
       case (command, initial) =>
         val (state, answer) = advance(command).run(initial).value
         state shouldBe initial
-        answer shouldBe NotYetInProgress
+        answer shouldBe 'defined
     }
   }
 
@@ -286,13 +287,13 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
           val (state, answer) = advance(command).run(initial).value
           state.status shouldBe initial.status
           state.settings shouldBe command.asInstanceOf[SetSettings].settings
-          answer shouldBe Ok
+          answer shouldBe 'defined
         }
     }
   }
 
   property("Stop must change state to WaitingForWork") {
-    forAll(commandAndAnyStateGen(Stop)) {
+    forAll(commandAndAnyStateGen(Reset)) {
       case (command, initial) =>
         whenever(
           (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0) || !initial.status
@@ -301,7 +302,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
           val (state, answer) = advance(command).run(initial).value
           state.status shouldBe a[WaitingWork]
           state.settings shouldBe initial.settings
-          answer shouldBe Ok
+          answer shouldBe 'defined
 
           state.status.startTime shouldBe command.time
 
@@ -357,7 +358,7 @@ case object UserStateMachineSpec {
                   commandGen(Continue),
                   commandGen(Finish),
                   commandGen(Suspend),
-                  commandGen(Stop)
+                  commandGen(Reset)
                 )
     } yield command
 

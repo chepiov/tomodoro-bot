@@ -21,23 +21,29 @@ class ManagerInterpreter[F[_]: Logger: Monad](users: Users[F]) extends Manager[F
           user <- users.getOrCreateUser(message.chat.id)
           r    <- user.info(GetHelp)
         } yield r
+      case "/start" =>
+        for {
+          _    <- Logger[F].debug(s"[${message.chat.id}] Received start command")
+          user <- users.getOrCreateUser(message.chat.id)
+          r    <- user.advance(Continue(now))
+        } yield r
       case "/continue" =>
         for {
           _    <- Logger[F].debug(s"[${message.chat.id}] Received continue command")
           user <- users.getOrCreateUser(message.chat.id)
           r    <- user.advance(Continue(now))
         } yield r
-      case "/suspend" =>
+      case "/pause" =>
         for {
           _    <- Logger[F].debug(s"[${message.chat.id}] Received suspend command")
           user <- users.getOrCreateUser(message.chat.id)
           r    <- user.advance(Suspend(now))
         } yield r
-      case "/stop" =>
+      case "/reset" =>
         for {
-          _    <- Logger[F].debug(s"[${message.chat.id}] Received stop command")
+          _    <- Logger[F].debug(s"[${message.chat.id}] Received reset command")
           user <- users.getOrCreateUser(message.chat.id)
-          r    <- user.advance(Stop(now))
+          r    <- user.advance(Reset(now))
         } yield r
       case "/skip" =>
         for {

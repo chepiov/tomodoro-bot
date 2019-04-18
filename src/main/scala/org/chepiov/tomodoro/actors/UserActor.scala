@@ -3,7 +3,8 @@ package org.chepiov.tomodoro.actors
 import java.time.OffsetDateTime
 
 import akka.actor.{ActorLogging, ActorSelection, Props, Timers}
-import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
+import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted, SnapshotOffer}
+import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras.Users.defaultUserSettings
 import org.chepiov.tomodoro.programs.UserStateMachine
@@ -17,7 +18,7 @@ class UserActor(
     timeUnit: TimeUnit,
     defaultSettings: UserSettings,
     snapShotInterval: Int
-) extends Timers with PersistentActor with ActorLogging {
+) extends Timers with PersistentActor with AtLeastOnceDelivery with ActorLogging {
   import UserActor._
   import UserStateMachine._
 
@@ -27,26 +28,43 @@ class UserActor(
   override def persistenceId: String = chatId.toString
 
   override def receiveCommand: Receive = {
-    case CommandMsg(cmd, ask) =>
-      advance(cmd, timeUnit).run(state).value match {
-        case (s, a) =>
-          timerState(s.status)
-          persist(UserEvent(chatId, s)) { evt =>
-            log.debug(s"[$chatId] Event persisted: $evt")
-            state = evt.state
-            if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
-              saveSnapshot(state)
-            userChat ! a
-            ask()
-          }
-      }
-    case QueryMsg(GetState, ask) =>
+    case CommandMsg(cmd, ack) =>
+      handleCommand(cmd, ack)
+    case cmd: Finish =>
+      handleCommand(cmd, () => ())
+    case QueryMsg(GetState, ack) =>
       log.debug(s"[$chatId] State requested")
       userChat ! state
-      ask()
-    case QueryMsg(GetHelp, ask) =>
+      ack()
+    case QueryMsg(GetHelp, ack) =>
       log.debug(s"[$chatId] Help requested")
-      ask()
+      ack()
+    case MessageToUserConfirm(deliveryId) =>
+      persist(MessageToUserConfirmed(deliveryId)) { evt =>
+        confirmDelivery(evt.deliveryId)
+        log.debug(s"[$chatId] Message delivered")
+      }
+  }
+
+  private def handleCommand(cmd: Command, ack: () => Unit): Unit = {
+    log.debug(s"[$chatId] Command $cmd received")
+    advance(chatId, cmd, timeUnit).run(state).value match {
+      case (s, maybeMessage) =>
+        timerState(s.status)
+        persist(UserEvent(chatId, s)) { evt =>
+          log.debug(s"[$chatId] Event persisted: $evt")
+          ack()
+          state = evt.state
+          if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
+            saveSnapshot(state)
+          maybeMessage.foreach { messageEvt =>
+            persist(messageEvt) { evt =>
+              log.debug(s"[$chatId] Message event persisted: $evt")
+              deliver(userChat)(deliveryId => MessageToUser(deliveryId, evt))
+            }
+          }
+        }
+    }
   }
 
   override def receiveRecover: Receive = {
@@ -64,8 +82,13 @@ class UserActor(
         val currentTime = now
         val time        = if (s.endTime < currentTime) currentTime else s.endTime
         val duration    = max(s.endTime - currentTime, 0)
+        log.debug(s"[$chatId] Scheduling timer, finish after ${FiniteDuration(duration, SECONDS)}")
         timers.startSingleTimer(timerKey, Finish(time), FiniteDuration(duration, SECONDS))
-      case _ => timers.cancel(timerKey)
+      case _ =>
+        if (timers.isTimerActive(timerKey)) {
+          log.debug(s"[$chatId] Cancelling timer")
+          timers.cancel(timerKey)
+        }
     }
 }
 
@@ -84,10 +107,11 @@ case object UserActor {
   final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
 
   final case class UserEvent(chatId: Long, state: UserState)
+  final case class MessageToUser(deliveryId: Long, msg: TSendMessage)
+  final case class MessageToUserConfirm(deliveryId: Long)
+  final case class MessageToUserConfirmed(deliveryId: Long)
 
   private def now: Long = OffsetDateTime.now().toEpochSecond
 
   private val timerKey: String = "FINISH"
-
-  val accepted: String = "accepted"
 }

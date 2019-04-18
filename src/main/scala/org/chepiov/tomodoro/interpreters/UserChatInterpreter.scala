@@ -6,16 +6,14 @@ import cats.syntax.functor._
 import cats.{Monad, MonadError}
 import io.chrisdavenport.log4cats.Logger
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
-import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras.{Telegram, UserChat}
 
 class UserChatInterpreter[F[_]: Logger: MonadError[?[_], Throwable]](telegram: Telegram[F]) extends UserChat[F] {
 
-  override def sayTo(chatId: Long, answer: Answer): F[Boolean] = {
+  override def sayTo(chatId: Long, msg: TSendMessage): F[Boolean] = {
     val result = for {
-      _   <- Logger[F].debug(s"[$chatId] Answer: $answer")
-      msg = TSendMessage(chatId, "test")
-      r   <- telegram.sendMessage(msg)
+      _ <- Logger[F].debug(s"[$chatId] Message: $msg")
+      r <- telegram.sendMessage(msg)
     } yield r
 
     result.map(_ => true).handleErrorWith { e =>

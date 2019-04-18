@@ -143,7 +143,7 @@ case object User {
 
   final case class Suspend(time: Long) extends UserCommand
 
-  final case class Stop(time: Long) extends UserCommand
+  final case class Reset(time: Long) extends UserCommand
 
   final case class Skip(time: Long) extends UserCommand
 
@@ -152,19 +152,4 @@ case object User {
   case object GetState extends UserInfoQuery
 
   case object GetHelp extends UserInfoQuery
-
-  sealed trait Answer extends Product with Serializable
-
-  final case class Correct(availableCommands: Set[Command])
-
-  case object Ok extends Answer
-
-  case object AlreadyInProgress extends Answer
-
-  case object NotYetInProgress extends Answer
-
-  case object InvalidTime extends Answer
-
-  case object IllegalState extends Answer
-
 }

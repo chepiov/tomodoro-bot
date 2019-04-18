@@ -44,8 +44,8 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
 
   override def getMe: F[TUser] =
     for {
-      _        <- Logger[F].debug(s"Getting info about me")
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
+      _        <- Logger[F].debug(s"Getting info about me, request: $request")
       response <- getResponse(request)
       _        <- Logger[F].debug(s"$response")
       _        <- checkResponse(response, "getMe")

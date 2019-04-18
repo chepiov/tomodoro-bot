@@ -25,5 +25,5 @@ case object Users {
   /**
     * Default user settings for new users.
     */
-  val defaultUserSettings = UserSettings(duration = 25, shortBreak = 4, longBreak = 20, amount = 4)
+  val defaultUserSettings = UserSettings(duration = 3, shortBreak = 1, longBreak = 2, amount = 4)
 }

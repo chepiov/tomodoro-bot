@@ -1,6 +1,6 @@
 package org.chepiov.tomodoro.algebras
 
-import org.chepiov.tomodoro.algebras.User.Answer
+import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import simulacrum.typeclass
 
 /**
@@ -18,5 +18,5 @@ trait UserChat[F[_]] {
     * @param message message to say
     * @return true if success
     */
-  def sayTo(chatId: Long, message: Answer): F[Boolean]
+  def sayTo(chatId: Long, message: TSendMessage): F[Boolean]
 }
