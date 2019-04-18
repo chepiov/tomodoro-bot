@@ -1,0 +1,26 @@
+{
+  "name": "Tomodoro BOT",
+  "description": "Telegram bot for the Pomodoro Technique",
+  "repository": "https://telegram.me/tomodoroBot",
+  "logo": "https://www.svgrepo.com/show/203839/tomato.svg",
+  "keywords": [
+    "scala",
+    "akka",
+    "cats-effect"
+  ],
+  "env": {
+    "TELEGRAM_TOKEN": {
+      "description": "A secret token for Telegram API.",
+      "generator": "secret"
+    },
+    "AKKA_LOGLEVEL": {
+      "description": "The logging level for akka actors.",
+      "value": "DEBUG",
+      "required": false
+    }
+  },
+  "addons": [
+    "heroku-postgresql:hobby-dev",
+    "heroku addons:create mongolab:sandbox"
+  ]
+}
