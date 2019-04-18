@@ -32,7 +32,11 @@ case object User {
   /**
     * Represents user state.
     */
-  final case class UserState(settings: UserSettings, status: UserStatus)
+  final case class UserState(
+      settings: UserSettings,
+      status: Status,
+      settingsUpdate: SettingsUpdate = NotUpdate
+  )
 
   /**
     * Represents user settings.
@@ -47,7 +51,7 @@ case object User {
   /**
     * Represents user status.
     */
-  sealed trait UserStatus extends Product with Serializable {
+  sealed trait Status extends Product with Serializable {
 
     /**
       * Remaining amount of tomodoroes in current cycle.
@@ -67,7 +71,7 @@ case object User {
   /**
     * Status which should be finished after some period.
     */
-  sealed trait FiniteUserStatus extends UserStatus {
+  sealed trait FiniteUserStatus extends Status {
 
     /**
       * When the status should be completed.
@@ -80,19 +84,19 @@ case object User {
   /**
     * Status which was suspended.
     */
-  sealed trait SuspendedUserStatus extends UserStatus {
+  sealed trait SuspendedUserStatus extends Status {
     def suspend: Long
   }
 
   /**
     * Waiting for the start of the next tomodoro.
     */
-  final case class WaitingWork(remaining: Int, startTime: Long) extends UserStatus
+  final case class WaitingWork(remaining: Int, startTime: Long) extends Status
 
   /**
     * Waiting for the start of the next break.
     */
-  final case class WaitingBreak(remaining: Int, startTime: Long) extends UserStatus
+  final case class WaitingBreak(remaining: Int, startTime: Long) extends Status
 
   /**
     * Tomodoro working
@@ -114,6 +118,13 @@ case object User {
     */
   final case class BreakSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedUserStatus
 
+  sealed trait SettingsUpdate
+  final case class DurationUpdate(startedAt: Long)   extends SettingsUpdate
+  final case class ShortBreakUpdate(startedAt: Long) extends SettingsUpdate
+  final case class LongBreakUpdate(startedAt: Long)  extends SettingsUpdate
+  final case class AmountUpdate(startedAt: Long)     extends SettingsUpdate
+  case object NotUpdate                              extends SettingsUpdate
+
   /**
     * Commands for user.
     */
@@ -133,23 +144,47 @@ case object User {
   sealed trait UserCommand extends Command
 
   /**
-    * Setting new settings command.
+    * Continue the waiting or suspended states.
     */
-  final case class SetSettings(time: Long, settings: UserSettings) extends UserCommand
-
   final case class Continue(time: Long) extends UserCommand
 
+  /**
+    * Finish finite state (internal command, used by scheduler).
+    */
   final case class Finish(time: Long) extends Command
 
+  /**
+    * Suspend finite state.
+    */
   final case class Suspend(time: Long) extends UserCommand
 
+  /**
+    * Reset all state.
+    */
   final case class Reset(time: Long) extends UserCommand
 
+  /**
+    * Skip finite state.
+    */
   final case class Skip(time: Long) extends UserCommand
+
+  /**
+    * Setting new settings command.
+    */
+  final case class SetSettings(time: Long) extends UserCommand
+
+  sealed trait ChangeSettingsCommand extends UserCommand
+
+  final case class AwaitChangingDuration(time: Long)        extends ChangeSettingsCommand
+  final case class AwaitChangingLongBreak(time: Long)       extends ChangeSettingsCommand
+  final case class AwaitChangingShortBreak(time: Long)      extends ChangeSettingsCommand
+  final case class AwaitChangingAmount(time: Long)          extends ChangeSettingsCommand
+  final case class SetSettingsValue(time: Long, value: Int) extends ChangeSettingsCommand
 
   sealed trait UserInfoQuery extends Product with Serializable
 
   case object GetState extends UserInfoQuery
 
   case object GetHelp extends UserInfoQuery
+
 }

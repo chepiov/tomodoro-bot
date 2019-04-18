@@ -277,7 +277,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
     }
   }
 
-  property("SetSettings must change only settings") {
+  property("SetSettings must change nothing") {
     forAll(commandAndAnyStateGen(SetSettings)) {
       case (command, initial) =>
         whenever(
@@ -285,8 +285,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
             .isInstanceOf[WaitingWork]
         ) {
           val (state, answer) = advance(command).run(initial).value
-          state.status shouldBe initial.status
-          state.settings shouldBe command.asInstanceOf[SetSettings].settings
+          state shouldBe initial
           answer shouldBe 'defined
         }
     }
@@ -323,7 +322,7 @@ case object UserStateMachineSpec {
   def commandGen[A <: Command](f: Long => A): Gen[A] =
     commandGen((t, _) => f(t))
 
-  def statusGen[A <: UserStatus](f: (Int, Long, Long) => A)(startMax: Long, amount: Int): Gen[A] =
+  def statusGen[A <: Status](f: (Int, Long, Long) => A)(startMax: Long, amount: Int): Gen[A] =
     for {
       remaining <- Gen.choose(0, amount)
       start     <- Gen.choose(0, startMax)
@@ -337,7 +336,7 @@ case object UserStateMachineSpec {
       suspend   <- Gen.choose(start, startMax)
     } yield f(remaining, start, suspend)
 
-  def statusGen[A <: UserStatus](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
+  def statusGen[A <: Status](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
     statusGen((r, s, _) => f(r, s))(startMax, amount)
 
   def suspendedStatusGen[A <: SuspendedUserStatus](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
@@ -385,7 +384,7 @@ case object UserStateMachineSpec {
     } yield UserState(settings, status)
   }
 
-  def stateGen[A <: UserStatus](startMax: Long, f: (Int, Long, Long) => A): Gen[UserState] =
+  def stateGen[A <: Status](startMax: Long, f: (Int, Long, Long) => A): Gen[UserState] =
     for {
       settings <- settingsGen
       status   <- statusGen(f)(startMax, settings.amount)
@@ -397,7 +396,7 @@ case object UserStateMachineSpec {
       status   <- suspendedStatusGen(f)(startMax, settings.amount)
     } yield UserState(settings, status)
 
-  def stateGen[A <: UserStatus](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
+  def stateGen[A <: Status](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
     stateGen(startMax, (r, s, _) => f(r, s))
 
   def suspendedStateGen[A <: SuspendedUserStatus](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
@@ -435,7 +434,7 @@ case object UserStateMachineSpec {
   def commandAndFiniteStateGen[C <: Command](cb: Long => C): Gen[(Command, UserState)] =
     commandAndFiniteStateGen((t, _) => cb(t))
 
-  def commandAndStateGen[C <: Command, S <: UserStatus](
+  def commandAndStateGen[C <: Command, S <: Status](
       cb: (Long, UserSettings) => C,
       sb: (Int, Long, Long) => S
   ): Gen[(Command, UserState)] =
@@ -453,7 +452,7 @@ case object UserStateMachineSpec {
       state <- suspendedStateGen(cmd.time, sb)
     } yield (cmd, state)
 
-  def commandAndStateGen[C <: Command, S <: UserStatus](
+  def commandAndStateGen[C <: Command, S <: Status](
       cb: Long => C,
       sb: (Int, Long, Long) => S
   ): Gen[(Command, UserState)] =
@@ -465,7 +464,7 @@ case object UserStateMachineSpec {
   ): Gen[(Command, UserState)] =
     commandAndSuspendedStateGen((t, _) => cb(t), sb)
 
-  def commandAndStateGen[C <: Command, S <: UserStatus](
+  def commandAndStateGen[C <: Command, S <: Status](
       cb: Long => C,
       sb: (Int, Long) => S
   ): Gen[(Command, UserState)] =

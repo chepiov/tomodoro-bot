@@ -8,7 +8,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.{ActorMaterializer, Materializer}
 import cats.Monad
-import cats.effect.{Async, Sync}
+import cats.effect.Async
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.chrisdavenport.log4cats.Logger
@@ -36,11 +36,17 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
       response <- getResponse(request)
       _        <- checkResponse(response, "sendMessage")
       _        <- discard(response)
-      _        <- Logger[F].debug(s"[${message.chatId}] sendMessage result status: ${response.status}")
+      r        <- Logger[F].debug(s"[${message.chatId}] sendMessage result status: ${response.status}")
+    } yield r
 
-    } yield ()
-
-  override def answerCallbackQuery(answer: TCallbackAnswer): F[Unit] = Sync[F].unit
+  override def answerCallbackQuery(answer: TCallbackAnswer): F[Unit] =
+    for {
+      request  <- marshal(answer, "answerCallbackQuery")
+      _        <- Logger[F].debug(s"answerCallbackQuery method call")
+      response <- getResponse(request)
+      _        <- checkResponse(response, "answerCallbackQuery")
+      r        <- Logger[F].debug(s"answerCallbackQuery result status: ${response.status}")
+    } yield r
 
   override def getMe: F[TUser] =
     for {
@@ -83,7 +89,7 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
   private def error(response: HttpResponse, method: String): F[Unit] =
     Async[F].raiseError[Unit](new RuntimeException(s"Error during $method, status code: ${response.status}"))
 
-  private def marshal(message: TSendMessage, path: String): F[HttpRequest] =
+  private def marshal[A: RootJsonFormat](message: A, path: String): F[HttpRequest] =
     for {
       implicit0(ec: ExecutionContext) <- ecF
       entity <- Async[F].async[RequestEntity] { k =>
@@ -110,13 +116,20 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
 private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   import spray.json._
 
-  implicit val replyKeyboardButton: RootJsonFormat[TKeyboardButton]        = jsonFormat1(TKeyboardButton)
-  implicit val replyKeyboardMarkup: RootJsonFormat[TReplyKeyboardMarkup]   = jsonFormat1(TReplyKeyboardMarkup)
-  implicit val inlineKeyboardButton: RootJsonFormat[TInlineKeyboardButton] = jsonFormat1(TInlineKeyboardButton)
+  implicit val replyKeyboardButton: RootJsonFormat[TKeyboardButton] = jsonFormat1(TKeyboardButton)
+
+  implicit val replyKeyboardMarkup: RootJsonFormat[TReplyKeyboardMarkup] = jsonFormat1(TReplyKeyboardMarkup)
+
+  implicit val inlineKeyboardButton: RootJsonFormat[TInlineKeyboardButton] =
+    jsonFormat(TInlineKeyboardButton.apply, "text", "callback_data")
+
   implicit val inlineKeyboardMarkup: RootJsonFormat[TInlineKeyboardMarkup] = jsonFormat1(TInlineKeyboardMarkup)
 
   implicit val userFormat: RootJsonFormat[TUser] =
     jsonFormat(TUser.apply, "id", "is_bot", "first_name", "last_name", "username")
+
+  implicit val callbackAnswer: RootJsonFormat[TCallbackAnswer] =
+    jsonFormat(TCallbackAnswer.apply, "callback_query_id")
 
   implicit def responseFormat[A: RootJsonFormat]: RootJsonFormat[TResponse[A]] =
     jsonFormat2(TResponse.apply[A])
@@ -143,10 +156,10 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
     }
   }
 
-  implicit def sendMessage: RootJsonFormat[TSendMessage] =
+  implicit val sendMessageFormat: RootJsonFormat[TSendMessage] =
     jsonFormat(TSendMessage, "chat_id", "text", "reply_markup")
 
-  implicit def sendMessageToEntity: ToEntityMarshaller[TSendMessage] =
+  implicit val sendMessageToEntity: ToEntityMarshaller[TSendMessage] =
     Marshaller.withFixedContentType(MediaTypes.`application/json`) { a =>
       HttpEntity(ContentTypes.`application/json`, a.toJson.compactPrint)
     }

@@ -24,7 +24,7 @@ class UserActor(
   import UserStateMachine._
 
   //noinspection ActorMutableStateInspection
-  private var state: UserState = UserState(defaultSettings, WaitingWork(defaultSettings.amount, now))
+  private var state: UserState = UserState(defaultSettings, WaitingWork(defaultSettings.amount, now), NotUpdate)
 
   override def persistenceId: String = chatId.toString
 
@@ -81,7 +81,7 @@ class UserActor(
       log.debug(s"[$chatId] Recovering completed. Current state: $state")
   }
 
-  private def timerState(status: UserStatus): Unit =
+  private def timerState(status: Status): Unit =
     status match {
       case s: FiniteUserStatus =>
         val currentTime = now

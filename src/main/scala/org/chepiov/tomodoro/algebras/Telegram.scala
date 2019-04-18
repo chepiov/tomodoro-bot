@@ -79,7 +79,8 @@ case object Telegram {
     */
   final case class TUpdate(
       updateId: Long,
-      message: Option[TMessage]
+      message: Option[TMessage],
+      callbackQuery: Option[TCallbackQuery]
   )
 
   /**
@@ -104,7 +105,7 @@ case object Telegram {
   /**
     * @see [[https://core.telegram.org/bots/api#inlinekeyboardbutton]]
     */
-  final case class TInlineKeyboardButton(text: String)
+  final case class TInlineKeyboardButton(text: String, callbackData: String)
 
   /**
     * @see [[https://core.telegram.org/bots/api#replykeyboardmarkup]]
@@ -115,6 +116,11 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#inlinekeyboardmarkup]]
     */
   final case class TInlineKeyboardMarkup(inlineKeyboard: List[List[TInlineKeyboardButton]]) extends TReplyMarkup
+
+  /**
+    * @see [[https://core.telegram.org/bots/api#callbackquery]]
+    */
+  final case class TCallbackQuery(id: String, from: TUser, message: Option[TMessage], data: Option[String])
 
   /**
     * @see [[https://core.telegram.org/bots/api#answercallbackquery]]
