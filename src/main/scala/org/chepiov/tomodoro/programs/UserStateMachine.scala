@@ -4,6 +4,7 @@ import cats.data.State
 import cats.syntax.option._
 import org.chepiov.tomodoro.algebras.Telegram.{apply => _, _}
 import org.chepiov.tomodoro.algebras.User._
+import org.chepiov.tomodoro.programs.UserMessages._
 
 import scala.concurrent.duration.{FiniteDuration, TimeUnit}
 
@@ -19,29 +20,125 @@ case object UserStateMachine {
       _               <- State.set(state)
     } yield answer
 
-  private def advance(chatId: Long, cmd: Command, s: UserState, timeUnit: TimeUnit): (UserState, Option[TSendMessage]) =
-    (s, cmd) match {
-      case invalidTime()        => (s, none)
-      case illegalWaitingWork() => (s, none)
-      case inappropriateStateForContinue() =>
-        s.status match {
-          case _: Working => (s, alreadyWorkingMsg(chatId))
-          case _          => (s, alreadyBreakingMsg(chatId))
-        }
-      case inappropriateStateForFinish()  => (s, none)
-      case inappropriateStateForSuspend() => (s, alreadySuspendedMsg(chatId))
-      case continueCmd()                  => continueAdvance(chatId, cmd, s, timeUnit)
-      case finishCmd()                    => finishAdvance(chatId, cmd, s)
-      case suspendCmd()                   => suspendAdvance(chatId, cmd, s)
-      case changeSettingsCmd()            => changeSettingsAdvance(chatId, cmd, s)
-      case (us @ UserState(settings @ UserSettings(_, _, _, a), _, _), Reset(t)) =>
-        val remaining = a
-        val start     = t
-        (us.copy(status = WaitingWork(remaining, start)), resetMsg(chatId, settings))
-      case _ => (s, none)
+  def query(chatId: Long, query: UserInfoQuery, state: UserState): TSendMessage =
+    query match {
+      case GetHelp  => helpMsg(chatId, state.settings)
+      case GetState => stateMsg(chatId, state)
     }
 
-  private def continueAdvance(
+  private def advance(chatId: Long, cmd: Command, s: UserState, timeUnit: TimeUnit): (UserState, Option[TSendMessage]) =
+    (s, cmd, chatId, timeUnit) match {
+      case invalidTime(r @ (_, _))                   => r
+      case illegalWaitingWork(r @ (_, _))            => r
+      case inappropriateStateForContinue(r @ (_, _)) => r
+      case inappropriateStateForFinish(r @ (_, _))   => r
+      case inappropriateStateForSuspend(r @ (_, _))  => r
+      case continueCmd(r @ (_, _))                   => r
+      case finishCmd(r @ (_, _))                     => r
+      case suspendCmd(r @ (_, _))                    => r
+      case changeSettingsCmd(r @ (_, _))             => r
+      case resetCmd(r @ (_, _))                      => r
+      case _                                         => (s, none)
+    }
+
+  private def toSeconds(duration: Int, timeUnit: TimeUnit): Long = FiniteDuration(duration.toLong, timeUnit).toSeconds
+
+  private object invalidTime {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s @ UserState(_, status, _), cmd: Command, _, _) if cmd.time < status.startTime => (s, none).some
+        case (s @ UserState(_, status: SuspendedUserStatus, _), cmd: Command, _, _) if cmd.time < status.suspend =>
+          (s, none).some
+        case _ => none
+      }
+  }
+
+  private object illegalWaitingWork {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s @ UserState(_, WaitingWork(remaining, _), _), _, _, _) if remaining == 0 => (s, none).some
+        case _                                                                           => none
+      }
+  }
+
+  private object inappropriateStateForContinue {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s @ UserState(_, _: FiniteUserStatus, _), Continue(_), chatId, _) =>
+          s.status match {
+            case _: Working => (s, alreadyWorkingMsg(chatId)).some
+            case _          => (s, alreadyBreakingMsg(chatId)).some
+          }
+        case _ => none
+      }
+  }
+
+  private object inappropriateStateForFinish {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s @ UserState(_, _: SuspendedUserStatus, _), Finish(_), _, _) => (s, none).some
+        case (s @ UserState(_, _: WaitingWork, _), Finish(_), _, _)         => (s, none).some
+        case (s @ UserState(_, _: WaitingBreak, _), Finish(_), _, _)        => (s, none).some
+        case _                                                              => none
+      }
+  }
+
+  private object inappropriateStateForSuspend {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s @ UserState(_, _: SuspendedUserStatus, _), Suspend(_), chatId, _) =>
+          (s, alreadySuspendedMsg(chatId)).some
+        case (s @ UserState(_, _: WaitingWork, _), Suspend(_), chatId, _)  => (s, alreadySuspendedMsg(chatId)).some
+        case (s @ UserState(_, _: WaitingBreak, _), Suspend(_), chatId, _) => (s, alreadySuspendedMsg(chatId)).some
+        case _                                                             => none
+      }
+  }
+
+  private object continueCmd {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s, cmd @ Continue(_), chatId, timeUnit) => continue(chatId, cmd, s, timeUnit).some
+        case _                                        => none
+      }
+  }
+
+  private object finishCmd {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s, cmd @ Finish(_), chatId, _) => finish(chatId, cmd, s).some
+        case _                               => none
+      }
+  }
+
+  private object suspendCmd {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s, cmd @ Suspend(_), chatId, _) => suspend(chatId, cmd, s).some
+        case _                                => none
+      }
+  }
+
+  private object changeSettingsCmd {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (s, cmd @ SetSettings(_), chatId, _)       => changeSettings(chatId, cmd, s).some
+        case (s, cmd: ChangeSettingsCommand, chatId, _) => changeSettings(chatId, cmd, s).some
+        case _                                          => none
+      }
+  }
+
+  private object resetCmd {
+    def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
+      uc match {
+        case (us @ UserState(settings @ UserSettings(_, _, _, a), _, _), Reset(t), chatId, _) =>
+          val remaining = a
+          val start     = t
+          (us.copy(status = WaitingWork(remaining, start)), resetMsg(chatId, settings)).some
+        case _ => none
+      }
+  }
+
+  private def continue(
       chatId: Long,
       cmd: Command,
       s: UserState,
@@ -74,7 +171,7 @@ case object UserStateMachine {
       case _ => (s, none)
     }
 
-  private def finishAdvance(
+  private def finish(
       chatId: Long,
       cmd: Command,
       s: UserState
@@ -91,7 +188,7 @@ case object UserStateMachine {
       case _ => (s, none)
     }
 
-  private def suspendAdvance(
+  private def suspend(
       chatId: Long,
       cmd: Command,
       s: UserState
@@ -110,36 +207,19 @@ case object UserStateMachine {
       case _ => (s, none)
     }
 
-  private def changeSettingsAdvance(
+  private def changeSettings(
       chatId: Long,
       cmd: Command,
       s: UserState
   ): (UserState, Option[TSendMessage]) =
     (s, cmd) match {
-      case (us, SetSettings(_)) =>
-        (us, setSettingsMsg(chatId))
-      case (us, AwaitChangingDuration(t)) =>
-        (
-          us.copy(settingsUpdate = DurationUpdate(t)),
-          TSendMessage(chatId, "Input new duration (in minutes)", none).some
-        )
-      case (us, AwaitChangingLongBreak(t)) =>
-        (
-          us.copy(settingsUpdate = LongBreakUpdate(t)),
-          TSendMessage(chatId, "Input new long break duration (in minutes)", none).some
-        )
-      case (us, AwaitChangingShortBreak(t)) =>
-        (
-          us.copy(settingsUpdate = ShortBreakUpdate(t)),
-          TSendMessage(chatId, "Input new short break duration (in minutes)", none).some
-        )
-      case (us, AwaitChangingAmount(t)) =>
-        (
-          us.copy(settingsUpdate = AmountUpdate(t)),
-          TSendMessage(chatId, "Input new amount of tomodoroes in the cycle", none).some
-        )
-      case (us @ UserState(_, _, NotUpdate), _: SetSettingsValue) =>
-        (us, none)
+      case (us, SetSettings(_))                                   => (us, setSettingsMsg(chatId))
+      case (us, AwaitChangingDuration(t))                         => (us.copy(settingsUpdate = DurationUpdate(t)), durationMsg(chatId))
+      case (us, AwaitChangingLongBreak(t))                        => (us.copy(settingsUpdate = LongBreakUpdate(t)), longBreakMsg(chatId))
+      case (us, AwaitChangingShortBreak(t))                       => (us.copy(settingsUpdate = ShortBreakUpdate(t)), shortBreakMsg(chatId))
+      case (us, AwaitChangingAmount(t))                           => (us.copy(settingsUpdate = AmountUpdate(t)), amountMsg(chatId))
+      case (us @ UserState(_, _, NotUpdate), _: SetSettingsValue) => (us, none)
+      case (us, SetSettingsValue(_, value)) if value <= 0         => (us, invalidValueMsg(chatId))
       case (us @ UserState(settings, _, settingsUpdate), SetSettingsValue(_, value)) if value > 0 =>
         val updatedSettings = settingsUpdate match {
           case _: DurationUpdate   => settings.copy(duration = value)
@@ -148,153 +228,7 @@ case object UserStateMachine {
           case _: AmountUpdate     => settings.copy(amount = value)
           case _                   => settings
         }
-        (us.copy(settings = updatedSettings), TSendMessage(chatId, "Settings updated").some)
-      case (us, SetSettingsValue(_, _)) =>
-        (us, TSendMessage(chatId, "Value must be > 0").some)
+        (us.copy(settings = updatedSettings, settingsUpdate = NotUpdate), settingsUpdatedMsg(chatId))
       case _ => (s, none)
     }
-
-  private def toSeconds(duration: Int, timeUnit: TimeUnit): Long = FiniteDuration(duration.toLong, timeUnit).toSeconds
-
-  private object invalidTime {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, s, _), c: Command) if c.time < s.startTime                    => true
-      case (UserState(_, s: SuspendedUserStatus, _), c: Command) if c.time < s.suspend => true
-      case _                                                                           => false
-    }
-  }
-
-  private object illegalWaitingWork {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, WaitingWork(remaining, _), _), _) if remaining == 0 => true
-      case _                                                                 => false
-    }
-  }
-
-  private object inappropriateStateForContinue {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, _: FiniteUserStatus, _), Continue(_)) => true
-      case _                                                   => false
-    }
-  }
-
-  private object inappropriateStateForFinish {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, _: SuspendedUserStatus, _), Finish(_)) => true
-      case (UserState(_, _: WaitingWork, _), Finish(_))         => true
-      case (UserState(_, _: WaitingBreak, _), Finish(_))        => true
-      case _                                                    => false
-    }
-  }
-
-  private object inappropriateStateForSuspend {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (UserState(_, _: SuspendedUserStatus, _), Suspend(_)) => true
-      case (UserState(_, _: WaitingWork, _), Suspend(_))         => true
-      case (UserState(_, _: WaitingBreak, _), Suspend(_))        => true
-      case _                                                     => false
-    }
-  }
-
-  private object continueCmd {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (_, Continue(_)) => true
-      case _                => false
-    }
-  }
-
-  private object finishCmd {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (_, Finish(_)) => true
-      case _              => false
-    }
-  }
-
-  private object suspendCmd {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (_, Suspend(_)) => true
-      case _               => false
-    }
-  }
-
-  private object changeSettingsCmd {
-    def unapply(uc: (UserState, Command)): Boolean = uc match {
-      case (_, SetSettings(_))           => true
-      case (_, _: ChangeSettingsCommand) => true
-      case _                             => false
-    }
-  }
-
-  private def alreadyWorkingMsg(chatId: Long): Option[TSendMessage] =
-    TSendMessage(chatId, "You are already working", none).some
-  private def alreadyBreakingMsg(chatId: Long): Option[TSendMessage] =
-    TSendMessage(chatId, "You are already taking rest", none).some
-  private def alreadySuspendedMsg(chatId: Long): Option[TSendMessage] =
-    TSendMessage(chatId, "You are already in pause", none).some
-
-  private def workingMsg(chatId: Long, remaining: Int, afterPause: Boolean): Option[TSendMessage] =
-    TSendMessage(
-      chatId,
-      s"""Tomodoro ${if (afterPause) "continued" else "started"}, remaining: $remaining""",
-      workingKeyboard
-    ).some
-
-  private def breakingMsg(chatId: Long, remaining: Int): Option[TSendMessage] =
-    TSendMessage(chatId, s"""You have a ${if (remaining == 0) "long" else "short"} break""", breakingKeyboard).some
-
-  private def breakingAfterPauseMsg(chatId: Long, remaining: Int): Option[TSendMessage] =
-    TSendMessage(chatId, s"""Continuing a ${if (remaining == 0) "long" else "short"} break""", breakingKeyboard).some
-
-  private def waitingWorkMsg(chatId: Long, remaining: Int, cycleStart: Boolean): Option[TSendMessage] =
-    TSendMessage(chatId, s"""Break finished, remaining: $remaining""", waitingKeyboard(cycleStart)).some
-
-  private def waitingBreakMsg(chatId: Long, remaining: Int): Option[TSendMessage] =
-    TSendMessage(chatId, s"""Tomodoro finished, remaining: $remaining""", waitingKeyboard(false)).some
-
-  private def suspendedMsg(chatId: Long, work: Boolean): Option[TSendMessage] =
-    TSendMessage(chatId, s"""${if (work) "Tomodoro" else "Break"} paused""", waitingKeyboard(false)).some
-
-  private def setSettingsMsg(chatId: Long): Option[TSendMessage] =
-    TSendMessage(chatId, s"Choose type of setting:", setSettingsKeyboard).some
-
-  private def resetMsg(chatId: Long, settings: UserSettings): Option[TSendMessage] =
-    TSendMessage(chatId, s"""Tomodoro reset, Your settings: ${settingsText(settings)}""", waitingKeyboard(true)).some
-
-  private val downButtons: List[TKeyboardButton] =
-    List(TKeyboardButton("/settings"), TKeyboardButton("/stats"), TKeyboardButton("/help"), TKeyboardButton("/reset"))
-
-  private val workingKeyboard: Option[TReplyKeyboardMarkup] =
-    TReplyKeyboardMarkup(List(List(TKeyboardButton("/pause")), downButtons)).some
-
-  private val breakingKeyboard: Option[TReplyKeyboardMarkup] =
-    TReplyKeyboardMarkup(List(List(TKeyboardButton("/pause"), TKeyboardButton("/skip")), downButtons)).some
-
-  val SettingDurationData   = "settings_duration"
-  val SettingLongBreakData  = "settings_long_break"
-  val SettingShortBreakData = "settings_short_break"
-  val SettingAmountData     = "settings_amount"
-
-  private val setSettingsKeyboard: Option[TInlineKeyboardMarkup] =
-    TInlineKeyboardMarkup(
-      List(
-        List(
-          TInlineKeyboardButton("Duration", SettingDurationData),
-          TInlineKeyboardButton("Long break", SettingLongBreakData),
-          TInlineKeyboardButton("Short break", SettingShortBreakData),
-          TInlineKeyboardButton("Amount", SettingAmountData)
-        )
-      )
-    ).some
-
-  private def waitingKeyboard(cycleStart: Boolean): Option[TReplyKeyboardMarkup] =
-    TReplyKeyboardMarkup(List(List(TKeyboardButton(s"""${if (cycleStart) "/start" else "/continue"}""")), downButtons)).some
-
-  private def settingsText(settings: UserSettings): String =
-    s"""
-       |
-       | Tomodoro duration: ${settings.duration}.
-       | Short break duration: ${settings.shortBreak}.
-       | Long break duration: ${settings.longBreak}.
-       | Amount of tomodoroes in cycle: ${settings.amount}.
-       |""".stripMargin
 }

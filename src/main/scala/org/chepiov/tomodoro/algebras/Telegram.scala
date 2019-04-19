@@ -10,7 +10,6 @@ import simulacrum.typeclass
   */
 @typeclass
 trait Telegram[F[_]] {
-
   import Telegram._
 
   /**
@@ -94,7 +93,8 @@ case object Telegram {
   final case class TSendMessage(
       chatId: Long,
       text: String,
-      replyMarkup: Option[TReplyMarkup] = None
+      replyMarkup: Option[TReplyMarkup] = None,
+      parseMode: String = "Markdown"
   )
 
   /**

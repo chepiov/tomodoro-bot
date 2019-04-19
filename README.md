@@ -5,4 +5,18 @@
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
-Telegram bot for the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique)
+***
+**Telegram bot for the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique).**
+
+[Click here](https://telegram.me/tomodoroBot) to join. 
+
+### Available commands:
+* `/help`      - show help information
+* `/state`     - show current state
+* `/start`     - start tomodoro or start a break 
+* `/continue`  - same as `/start`
+* `/pause`     - pause tomodoro or pause a break
+* `/skip`      - skip current tomodoro or current break
+* `/reset`     - reset the whole tomodoro cycle
+* `/settings`  - change settings
+* `/stats`     - show stats

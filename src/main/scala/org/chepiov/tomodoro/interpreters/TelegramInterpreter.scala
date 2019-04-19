@@ -157,7 +157,7 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
   }
 
   implicit val sendMessageFormat: RootJsonFormat[TSendMessage] =
-    jsonFormat(TSendMessage, "chat_id", "text", "reply_markup")
+    jsonFormat(TSendMessage, "chat_id", "text", "reply_markup", "parse_mode")
 
   implicit val sendMessageToEntity: ToEntityMarshaller[TSendMessage] =
     Marshaller.withFixedContentType(MediaTypes.`application/json`) { a =>

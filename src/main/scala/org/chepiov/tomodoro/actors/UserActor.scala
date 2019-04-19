@@ -21,7 +21,6 @@ class UserActor(
     snapShotInterval: Int
 ) extends Timers with PersistentActor with AtLeastOnceDelivery with ActorLogging {
   import UserActor._
-  import UserStateMachine._
 
   //noinspection ActorMutableStateInspection
   private var state: UserState = UserState(defaultSettings, WaitingWork(defaultSettings.amount, now), NotUpdate)
@@ -30,16 +29,16 @@ class UserActor(
 
   override def receiveCommand: Receive = {
     case CommandMsg(cmd, ack) =>
-      handleCommand(cmd, ack)
+      receiveCommand(cmd, ack)
     case cmd: Finish =>
-      handleCommand(cmd, () => ())
-    case QueryMsg(GetState, ack) =>
-      log.debug(s"[$chatId] State requested")
-      userChat ! state
-      ack()
-    case QueryMsg(GetHelp, ack) =>
-      log.debug(s"[$chatId] Help requested")
-      ack()
+      receiveCommand(cmd, () => ())
+    case QueryMsg(query, ack) =>
+      log.debug(s"[$chatId] Query $query received")
+      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state))) { evt =>
+        log.debug(s"[$chatId] Message event persisted")
+        ack()
+        deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
+      }
     case ChatMsgConfirm(deliveryId) =>
       persist(MessageConfirmedEvent(deliveryId)) { evt =>
         confirmDelivery(evt.deliveryId)
@@ -50,9 +49,9 @@ class UserActor(
       unconfirmed.foreach(u => confirmDelivery(u.deliveryId))
   }
 
-  private def handleCommand(cmd: Command, ack: () => Unit): Unit = {
+  private def receiveCommand(cmd: Command, ack: () => Unit): Unit = {
     log.debug(s"[$chatId] Command $cmd received")
-    advance(chatId, cmd, timeUnit).run(state).value match {
+    UserStateMachine.advance(chatId, cmd, timeUnit).run(state).value match {
       case (s, maybeMessage) =>
         timerState(s.status)
         persist(StateChangedEvent(chatId, s)) { evt =>

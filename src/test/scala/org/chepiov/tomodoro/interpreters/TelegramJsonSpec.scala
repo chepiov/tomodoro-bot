@@ -101,6 +101,7 @@ case object TelegramJsonSpec {
       |      ]
       |    ]
       |  },
+      |  "parse_mode":"Markdown",
       |  "text": "test"
       |}
     """.stripMargin.parseJson
