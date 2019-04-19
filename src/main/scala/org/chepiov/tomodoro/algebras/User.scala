@@ -9,6 +9,7 @@ import simulacrum.typeclass
   */
 @typeclass
 trait User[F[_]] {
+
   import User._
 
   /**
@@ -24,6 +25,13 @@ trait User[F[_]] {
     * @param query to use
     */
   def info(query: UserInfoQuery): F[Unit]
+
+  /**
+    * Handles sending user statistic.
+    *
+    * @param query to use
+    */
+  def stats(query: UserStatsResult): F[Unit]
 }
 
 case object User {
@@ -117,12 +125,20 @@ case object User {
     */
   final case class BreakSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedUserStatus
 
+  /**
+    * Settings update state.
+    */
   sealed trait SettingsUpdate
-  final case class DurationUpdate(startedAt: Long)   extends SettingsUpdate
+
+  final case class DurationUpdate(startedAt: Long) extends SettingsUpdate
+
   final case class ShortBreakUpdate(startedAt: Long) extends SettingsUpdate
-  final case class LongBreakUpdate(startedAt: Long)  extends SettingsUpdate
-  final case class AmountUpdate(startedAt: Long)     extends SettingsUpdate
-  case object NotUpdate                              extends SettingsUpdate
+
+  final case class LongBreakUpdate(startedAt: Long) extends SettingsUpdate
+
+  final case class AmountUpdate(startedAt: Long) extends SettingsUpdate
+
+  case object NotUpdate extends SettingsUpdate
 
   /**
     * Commands for user.
@@ -172,18 +188,43 @@ case object User {
     */
   final case class SetSettings(time: Long) extends UserCommand
 
+  /**
+    * Changing settings commands.
+    */
   sealed trait ChangeSettingsCommand extends UserCommand
 
-  final case class AwaitChangingDuration(time: Long)        extends ChangeSettingsCommand
-  final case class AwaitChangingLongBreak(time: Long)       extends ChangeSettingsCommand
-  final case class AwaitChangingShortBreak(time: Long)      extends ChangeSettingsCommand
-  final case class AwaitChangingAmount(time: Long)          extends ChangeSettingsCommand
+  final case class AwaitChangingDuration(time: Long) extends ChangeSettingsCommand
+
+  final case class AwaitChangingLongBreak(time: Long) extends ChangeSettingsCommand
+
+  final case class AwaitChangingShortBreak(time: Long) extends ChangeSettingsCommand
+
+  final case class AwaitChangingAmount(time: Long) extends ChangeSettingsCommand
+
   final case class SetSettingsValue(time: Long, value: Int) extends ChangeSettingsCommand
 
+  /**
+    * User info queries.
+    */
   sealed trait UserInfoQuery extends Product with Serializable
 
   case object GetState extends UserInfoQuery
 
   case object GetHelp extends UserInfoQuery
+
+  case object GetStats extends UserInfoQuery
+
+  /**
+    * User statistic results.
+    */
+  sealed trait UserStatsResult extends Product with Serializable
+
+  case object PushLog extends UserStatsResult
+
+  case object PushCompletedLastDay extends UserStatsResult
+
+  case object PushCompletedLastWeek extends UserStatsResult
+
+  case object PushCompletedLastMonth extends UserStatsResult
 
 }

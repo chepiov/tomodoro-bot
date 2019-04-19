@@ -6,5 +6,8 @@ package org.chepiov.tomodoro.algebras
   * @tparam F effect
   */
 trait Statistic[F[_]] {
-  def getLog(chatId: Long, pageNum: Int): Seq[(String, String)]
+  def getLog(chatId: Long, offset: Int, limit: Int): F[Seq[(Long, String)]]
+  def getCompletedLastDay(chatId: Long): F[Int]
+  def getCompletedLastWeek(chatId: Long): F[Int]
+  def getCompletedLastMonth(chatId: Long): F[Int]
 }

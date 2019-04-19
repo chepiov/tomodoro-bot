@@ -34,11 +34,10 @@ class UserActor(
       receiveCommand(cmd, () => ())
     case QueryMsg(query, ack) =>
       log.debug(s"[$chatId] Query $query received")
-      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state))) { evt =>
-        log.debug(s"[$chatId] Message event persisted")
-        ack()
-        deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
-      }
+      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverAfterPersist(ack))
+    case StatsMsg(query, ack) =>
+      log.debug(s"[$chatId] Stats push $query received")
+      persist(MessageSentEvent(UserStateMachine.stats(chatId, query)))(deliverAfterPersist(ack))
     case ChatMsgConfirm(deliveryId) =>
       persist(MessageConfirmedEvent(deliveryId)) { evt =>
         confirmDelivery(evt.deliveryId)
@@ -55,19 +54,21 @@ class UserActor(
       case (s, maybeMessage) =>
         timerState(s.status)
         persist(StateChangedEvent(chatId, s)) { evt =>
-          log.debug(s"[$chatId] State event persisted")
+          log.debug(s"[$chatId] State event persisted: ${evt.state}")
           ack()
           state = evt.state
           if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
             saveSnapshot(state)
           maybeMessage.foreach { message =>
-            persist(MessageSentEvent(message)) { evt =>
-              log.debug(s"[$chatId] Message event persisted")
-              deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
-            }
+            persist(MessageSentEvent(message))(deliverAfterPersist())
           }
         }
     }
+  }
+  private def deliverAfterPersist(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
+    log.debug(s"[$chatId] Message event persisted")
+    ack()
+    deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
   }
 
   override def receiveRecover: Receive = {
@@ -111,6 +112,7 @@ case object UserActor {
 
   final case class CommandMsg(cmd: Command, ask: () => Unit)
   final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
+  final case class StatsMsg(query: UserStatsResult, ask: () => Unit)
 
   final case class MessageSentEvent(message: TSendMessage)
   final case class MessageConfirmedEvent(deliveryId: Long)

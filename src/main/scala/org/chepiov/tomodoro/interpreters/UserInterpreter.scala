@@ -6,7 +6,7 @@ import cats.effect.Async
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.chrisdavenport.log4cats.Logger
-import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, QueryMsg}
+import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, QueryMsg, StatsMsg}
 import org.chepiov.tomodoro.algebras.User
 import org.chepiov.tomodoro.algebras.User._
 
@@ -25,6 +25,14 @@ class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) ex
       _ <- Logger[F].debug(s"s[$chatId] Querying user, query: $query")
       ack <- Async[F].async[Unit] { k =>
               userActor ! QueryMsg(query, () => k(Right(())))
+            }
+    } yield ack
+
+  override def stats(query: UserStatsResult): F[Unit] =
+    for {
+      _ <- Logger[F].debug(s"s[$chatId] Pushing user statistic, query: $query")
+      ack <- Async[F].async[Unit] { k =>
+              userActor ! StatsMsg(query, () => k(Right(())))
             }
     } yield ack
 }
