@@ -237,7 +237,7 @@ case object UserStateMachine {
       s: UserState
   ): (UserState, Option[TSendMessage]) =
     (s, cmd) match {
-      case (us, SetSettings(_))                                   => (us, setSettingsMsg(chatId))
+      case (us, SetSettings(_))                                   => (us, setSettingsMsg(chatId, us.settings))
       case (us, AwaitChangingDuration(t))                         => (us.copy(settingsUpdate = DurationUpdate(t)), durationMsg(chatId))
       case (us, AwaitChangingLongBreak(t))                        => (us.copy(settingsUpdate = LongBreakUpdate(t)), longBreakMsg(chatId))
       case (us, AwaitChangingShortBreak(t))                       => (us.copy(settingsUpdate = ShortBreakUpdate(t)), shortBreakMsg(chatId))

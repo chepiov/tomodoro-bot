@@ -72,8 +72,8 @@ object UserMessages {
       waitingKeyboard(false)
     ).some
 
-  def setSettingsMsg(chatId: Long): Option[TSendMessage] =
-    TSendMessage(chatId, s"Select type of setting you wish to update", setSettingsKeyboard).some
+  def setSettingsMsg(chatId: Long, settings: UserSettings): Option[TSendMessage] =
+    TSendMessage(chatId, s"${settingsText(settings)} Select type of setting you wish to update", setSettingsKeyboard).some
 
   def statsMsg(chatId: Long): TSendMessage =
     TSendMessage(chatId, s"Select type of report", statsKeyboard)
