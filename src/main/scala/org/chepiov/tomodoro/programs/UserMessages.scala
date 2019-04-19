@@ -137,8 +137,8 @@ object UserMessages {
           TInlineKeyboardButton("Last day completed", StatsCountPerDayData)
         ),
         List(
-          TInlineKeyboardButton("Last completed", StatsCountPerWeekData),
-          TInlineKeyboardButton("Last completed", StatsCountPerMonthData)
+          TInlineKeyboardButton("Last week completed", StatsCountPerWeekData),
+          TInlineKeyboardButton("Last month completed", StatsCountPerMonthData)
         )
       )
     ).some

@@ -3,11 +3,12 @@ package org.chepiov.tomodoro.actors
 import akka.actor.SupervisorStrategy.Restart
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.pattern.{BackoffOpts, BackoffSupervisor}
-import org.chepiov.tomodoro.algebras.{ToFuture, UserChat}
+import cats.effect.Effect
+import org.chepiov.tomodoro.algebras.UserChat
 
 import scala.concurrent.duration._
 
-class UsersActor[F[_]: ToFuture](chat: UserChat[F]) extends Actor with ActorLogging {
+class UsersActor[F[_]: Effect](chat: UserChat[F]) extends Actor with ActorLogging {
   import UsersActor._
   import context._
 
@@ -49,7 +50,7 @@ class UsersActor[F[_]: ToFuture](chat: UserChat[F]) extends Actor with ActorLogg
 }
 
 case object UsersActor {
-  def props[F[_]: ToFuture](chat: UserChat[F]): Props =
+  def props[F[_]: Effect](chat: UserChat[F]): Props =
     Props(new UsersActor(chat))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)
