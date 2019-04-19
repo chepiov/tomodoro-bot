@@ -31,9 +31,7 @@ object UserMessages {
   def workingMsg(chatId: Long, remaining: Int, endTime: Long, afterPause: Boolean): Option[TSendMessage] =
     TSendMessage(
       chatId,
-      s"""${if (afterPause) "*Continuing*" else "*Starting*"}, remaining: $remaining, ends in ${remainingMinutes(
-        endTime
-      )}""",
+      workingText(afterPause, remaining, endTime),
       progressKeyboard
     ).some
 
@@ -51,25 +49,25 @@ object UserMessages {
       progressKeyboard
     ).some
 
-  def waitingWorkMsg(chatId: Long, remaining: Int, cycleStart: Boolean): Option[TSendMessage] =
+  def waitingWorkMsg(chatId: Long, remaining: Int): Option[TSendMessage] =
     TSendMessage(
       chatId,
-      s"""*Break* finished, remaining: $remaining, say */start* or */continue* when you're ready""",
-      waitingKeyboard(cycleStart)
+      s"""*Break* finished, remaining tomodoroes in the current cycle: $remaining, say */continue* when you're ready""",
+      waitingKeyboard()
     ).some
 
   def waitingBreakMsg(chatId: Long, remaining: Int): Option[TSendMessage] =
     TSendMessage(
       chatId,
-      s"""*Tomodoro* finished, remaining: $remaining, say */continue* for taking rest""",
-      waitingKeyboard(false)
+      s"""*Tomodoro* finished, remaining  tomodoroes in the current cycle: $remaining, say */continue* for taking rest""",
+      waitingKeyboard()
     ).some
 
   def suspendedMsg(chatId: Long, work: Boolean): Option[TSendMessage] =
     TSendMessage(
       chatId,
-      s"""${if (work) "*Tomodoro*" else "*Break*"} paused, say */start* or */continue* when you're ready""",
-      waitingKeyboard(false)
+      s"""${if (work) "*Tomodoro*" else "*Break*"} paused, say */continue* when you're ready""",
+      waitingKeyboard()
     ).some
 
   def setSettingsMsg(chatId: Long, settings: UserSettings): Option[TSendMessage] =
@@ -79,7 +77,7 @@ object UserMessages {
     TSendMessage(chatId, s"Select type of report", statsKeyboard)
 
   def resetMsg(chatId: Long, settings: UserSettings): Option[TSendMessage] =
-    TSendMessage(chatId, s"""*Cycle reset*, your current settings: ${settingsText(settings)}""", waitingKeyboard(true)).some
+    TSendMessage(chatId, s"""*Cycle reset*, your current settings: ${settingsText(settings)}""", waitingKeyboard()).some
 
   def durationMsg(chatId: Long): Option[TSendMessage] =
     TSendMessage(chatId, "Say new *duration* (in minutes)", none).some
@@ -122,7 +120,9 @@ object UserMessages {
       List(
         List(
           TInlineKeyboardButton("Duration", SettingsDurationData),
-          TInlineKeyboardButton("Long break", SettingsLongBreakData),
+          TInlineKeyboardButton("Long break", SettingsLongBreakData)
+        ),
+        List(
           TInlineKeyboardButton("Short break", SettingsShortBreakData),
           TInlineKeyboardButton("Amount", SettingsAmountData)
         )
@@ -143,16 +143,24 @@ object UserMessages {
       )
     ).some
 
-  private def waitingKeyboard(cycleStart: Boolean): Option[TReplyKeyboardMarkup] =
-    TReplyKeyboardMarkup(List(List(TKeyboardButton(s"""${if (cycleStart) "/start" else "/continue"}""")), downButtons)).some
+  private def waitingKeyboard(): Option[TReplyKeyboardMarkup] =
+    TReplyKeyboardMarkup(List(List(TKeyboardButton(s"/continue")), downButtons)).some
+
+  private def workingText(afterPause: Boolean, remaining: Int, endTime: Long): String =
+    s"""
+      |${if (afterPause) "*Continuing*" else "*Starting*"}
+      |Remaining tomodoroes in the current cycle: $remaining
+      |Ends in ${remainingMinutes(endTime)}
+    """.stripMargin
 
   private def settingsText(settings: UserSettings): String =
     s"""
-       | Tomodoro duration: ${settings.duration} minutes
-       | Short break duration: ${settings.shortBreak} minutes
-       | Long break duration: ${settings.longBreak} minutes
-       | Amount of tomodoroes in cycle: ${settings.amount} tomodoroes
-       |""".stripMargin
+      | Tomodoro duration: ${settings.duration} minutes
+      | Short break duration: ${settings.shortBreak} minutes
+      | Long break duration: ${settings.longBreak} minutes
+      | Amount of tomodoroes in cycle: ${settings.amount} tomodoroes
+      |
+    """.stripMargin
 
   private def helpText(settings: UserSettings): String =
     s"""
@@ -161,8 +169,7 @@ object UserMessages {
       |*Available commands:*
       | `/help`      - show help information
       | `/state`     - show current state
-      | `/start`     - start tomodoro or start a break 
-      | `/continue`  - same as `/start`
+      | `/continue`  - start tomodoro or start a break 
       | `/pause`     - pause tomodoro or pause a break
       | `/skip`      - skip current tomodoro or current break
       | `/reset`     - reset the whole tomodoro cycle
@@ -172,6 +179,41 @@ object UserMessages {
       | *Your current settings:*${settingsText(settings)} 
     """.stripMargin
 
+  private def stateText(state: UserState): String = {
+    state.status match {
+      case WaitingWork(_, _) =>
+        s"""
+          |You are ready to start tomodoro, press */continue*
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+      case WaitingBreak(_, _) =>
+        s"""
+          |You are ready to taking rest, press */continue*
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+      case Working(r, _, t) =>
+        s"""
+          |You are working, remaining tomodoroes in the current cycle: $r, you will finish in ${remainingMinutes(t)}
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+      case Breaking(_, _, endTime) =>
+        s"""
+          |You are taking rest, you will finish in ${remainingMinutes(endTime)}
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+      case WorkSuspended(_, _, suspend) =>
+        s"""
+          |You paused tomodoro ${minutesGone(suspend)} ago
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+      case BreakSuspended(_, _, suspend) =>
+        s"""
+          |You paused your break ${minutesGone(suspend)} ago
+          |Your current settings: ${settingsText(state.settings)}
+        """.stripMargin
+    }
+  }
+
   private def remainingMinutes(endTime: Long): FiniteDuration = {
     val remaining = FiniteDuration(math.max(0, endTime - OffsetDateTime.now().toEpochSecond), SECONDS).toMinutes
     Duration.create(remaining, MINUTES)
@@ -180,22 +222,5 @@ object UserMessages {
   private def minutesGone(suspendTime: Long): FiniteDuration = {
     val suspended = FiniteDuration(OffsetDateTime.now().toEpochSecond - suspendTime, SECONDS).toMinutes
     Duration.create(suspended, MINUTES)
-  }
-
-  private def stateText(state: UserState): String = {
-    state.status match {
-      case WaitingWork(_, _) =>
-        "You are ready to start tomodoro, press */start* or */continue*"
-      case WaitingBreak(_, _) =>
-        "You are ready to taking rest, press */start* or */continue*"
-      case Working(remaining, _, endTime) =>
-        s"You are working, remaining tomodoroes in the current cycle: $remaining, you will finish in ${remainingMinutes(endTime)}"
-      case Breaking(_, _, endTime) =>
-        s"You are taking rest, you will finish in ${remainingMinutes(endTime)}"
-      case WorkSuspended(_, _, suspend) =>
-        s"You paused tomodoro ${minutesGone(suspend)} ago"
-      case BreakSuspended(_, _, suspend) =>
-        s"You paused your break ${minutesGone(suspend)} ago"
-    }
   }
 }

@@ -208,7 +208,7 @@ case object UserStateMachine {
       case (us @ UserState(UserSettings(_, _, _, a), Breaking(r, _, _), _), Finish(t)) =>
         val remaining = if (r == 0) a else r
         val start     = t
-        (us.copy(status = WaitingWork(remaining, start)), waitingWorkMsg(chatId, remaining, remaining == a))
+        (us.copy(status = WaitingWork(remaining, start)), waitingWorkMsg(chatId, remaining))
       case _ => (s, none)
     }
 

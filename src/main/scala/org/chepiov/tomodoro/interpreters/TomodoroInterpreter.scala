@@ -27,15 +27,16 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
 
   override def handleUpdate(update: TUpdate): F[Unit] = {
     update match {
-      case statsQuery(chatId)             => query(chatId, GetStats)
-      case helpQuery(chatId)              => query(chatId, GetHelp)
-      case stateQuery(chatId)             => query(chatId, GetState)
-      case startCmd(chatId)               => advance(chatId, Continue)
-      case pauseCmd(chatId)               => advance(chatId, Suspend)
-      case resetCmd(chatId)               => advance(chatId, Reset)
-      case skipCmd(chatId)                => advance(chatId, Skip)
-      case settingsCmd(chatId)            => advance(chatId, SetSettings)
-      case settingsValue((chatId, value)) => advance(chatId, SetSettingsValue.apply(_, value))
+      case commandOrQuery(chatId, "/state")    => query(chatId, GetState)
+      case commandOrQuery(chatId, "/start")    => query(chatId, GetState)
+      case commandOrQuery(chatId, "/stats")    => query(chatId, GetStats)
+      case commandOrQuery(chatId, "/help")     => query(chatId, GetHelp)
+      case commandOrQuery(chatId, "/continue") => advance(chatId, Continue)
+      case commandOrQuery(chatId, "/pause")    => advance(chatId, Suspend)
+      case commandOrQuery(chatId, "/reset")    => advance(chatId, Reset)
+      case commandOrQuery(chatId, "/skip")     => advance(chatId, Skip)
+      case commandOrQuery(chatId, "/settings") => advance(chatId, SetSettings)
+      case settingsValue((chatId, value))      => advance(chatId, SetSettingsValue.apply(_, value))
       case settingsCallbackQuery(chatId, callbackId, cmd) =>
         for {
           _ <- advance(chatId, _ => cmd)
@@ -120,53 +121,11 @@ case object TomodoroInterpreter {
 
   private def now: Long = OffsetDateTime.now().toEpochSecond
 
-  private object helpQuery {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/help"))), None) => chatId.some
-      case _                                                                 => none
-    }
-  }
 
-  private object stateQuery {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/state"))), None) => chatId.some
-      case _                                                                  => none
-    }
-  }
-
-  private object startCmd {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/start"))), None)    => chatId.some
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/continue"))), None) => chatId.some
-      case _                                                                     => none
-    }
-  }
-
-  private object pauseCmd {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/pause"))), None) => chatId.some
-      case _                                                                  => none
-    }
-  }
-
-  private object resetCmd {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/reset"))), None) => chatId.some
-      case _                                                                  => none
-    }
-  }
-
-  private object skipCmd {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/skip"))), None) => chatId.some
-      case _                                                                 => none
-    }
-  }
-
-  private object settingsCmd {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/settings"))), None) => chatId.some
-      case _                                                                     => none
+  private object commandOrQuery {
+    def unapply(update: TUpdate): Option[(Long, String)] = update match {
+      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some(text))), None) => (chatId, text).some
+      case _                                                              => none
     }
   }
 
@@ -175,13 +134,6 @@ case object TomodoroInterpreter {
       case TUpdate(_, Some(TMessage(_, TChat(chatId), Some(value))), None) if value.forall(Character.isDigit) =>
         (chatId, value.toInt).some
       case _ => none
-    }
-  }
-
-  private object statsQuery {
-    def unapply(update: TUpdate): Option[Long] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some("/stats"))), None) => chatId.some
-      case _                                                                  => none
     }
   }
 

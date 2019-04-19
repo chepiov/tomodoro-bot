@@ -13,8 +13,7 @@
 ### Available commands:
 * `/help`      - show help information
 * `/state`     - show current state
-* `/start`     - start tomodoro or start a break 
-* `/continue`  - same as `/start`
+* `/continue`  - start tomodoro or start a break 
 * `/pause`     - pause tomodoro or pause a break
 * `/skip`      - skip current tomodoro or current break
 * `/reset`     - reset the whole tomodoro cycle
