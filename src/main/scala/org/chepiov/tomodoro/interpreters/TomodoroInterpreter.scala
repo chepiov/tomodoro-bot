@@ -27,66 +27,19 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
 
   override def handleUpdate(update: TUpdate): F[Unit] = {
     update match {
-      case statsQuery(chatId) =>
-        for {
-          _    <- Logger[F].debug("Received stats query")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.info(GetStats)
-        } yield r
-      case helpQuery(chatId) =>
-        for {
-          _    <- Logger[F].debug("Received help query")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.info(GetHelp)
-        } yield r
-      case stateQuery(chatId) =>
-        for {
-          _    <- Logger[F].debug("Received state query")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.info(GetState)
-        } yield r
-      case startCmd(chatId) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received start/continue command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(Continue(now))
-        } yield r
-      case pauseCmd(chatId) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received suspend command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(Suspend(now))
-        } yield r
-      case resetCmd(chatId) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received reset command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(Reset(now))
-        } yield r
-      case skipCmd(chatId) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received skip command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(Skip(now))
-        } yield r
-      case settingsCmd(chatId) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received settings command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(SetSettings(now))
-        } yield r
-      case settingsValue((chatId, value)) =>
-        for {
-          _    <- Logger[F].debug(s"[$chatId] Received settings update command")
-          user <- users.getOrCreateUser(chatId)
-          r    <- user.advance(SetSettingsValue(now, value))
-        } yield r
+      case statsQuery(chatId)             => query(chatId, GetStats)
+      case helpQuery(chatId)              => query(chatId, GetHelp)
+      case stateQuery(chatId)             => query(chatId, GetState)
+      case startCmd(chatId)               => advance(chatId, Continue)
+      case pauseCmd(chatId)               => advance(chatId, Suspend)
+      case resetCmd(chatId)               => advance(chatId, Reset)
+      case skipCmd(chatId)                => advance(chatId, Skip)
+      case settingsCmd(chatId)            => advance(chatId, SetSettings)
+      case settingsValue((chatId, value)) => advance(chatId, SetSettingsValue.apply(_, value))
       case settingsCallbackQuery(chatId, callbackId, cmd) =>
         for {
-          _    <- Logger[F].debug(s"[$chatId] Received settings callback query, command: $cmd")
-          user <- users.getOrCreateUser(chatId)
-          _    <- user.advance(cmd)
-          r    <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
+          _ <- advance(chatId, _ => cmd)
+          r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
       case statsCallbackQuery(chatId, callbackId, statsType) =>
         for {
@@ -96,16 +49,28 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
           _     <- user.stats(stats)
           r     <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
-      case _ =>
-        for {
-          r <- Logger[F].warn(s"Unknown update: $update")
-        } yield r
+      case _ => for (r <- Logger[F].warn(s"Unknown update: $update")) yield r
     }
   }
 
   override def setWebHook(updateUrl: String): F[Unit] = Monad[F].unit
 
   override def deleteWebHook(): F[Unit] = Monad[F].unit
+
+  private def query(chatId: Long, query: UserInfoQuery): F[Unit] =
+    for {
+      _    <- Logger[F].debug(s"[$chatId] Received $query query")
+      user <- users.getOrCreateUser(chatId)
+      r    <- user.info(query)
+    } yield r
+
+  private def advance(chatId: Long, cmd: Long => UserCommand): F[Unit] =
+    for {
+      user    <- users.getOrCreateUser(chatId)
+      command = cmd(now)
+      _       <- Logger[F].debug(s"[$chatId] Received $command command")
+      r       <- user.advance(cmd(now))
+    } yield r
 
   private def getStats(chatId: Long, statsType: StatsType): F[UserStatsResult] =
     statsType match {
