@@ -10,6 +10,7 @@ libraryDependencies += "com.typesafe.akka"         %% "akka-http"               
 libraryDependencies += "com.typesafe.akka"         %% "akka-http-spray-json"         % "10.1.8"
 libraryDependencies += "com.typesafe.akka"         %% "akka-persistence"             % "2.5.22"
 libraryDependencies += "com.typesafe.akka"         %% "akka-slf4j"                   % "2.5.22"
+libraryDependencies += "com.typesafe.akka"         %% "akka-persistence-query"       % "2.5.22"
 libraryDependencies += "com.github.scullxbones"    %% "akka-persistence-mongo-scala" % "2.2.4"
 libraryDependencies += "org.mongodb.scala"         %% "mongo-scala-driver"           % "2.6.0"
 libraryDependencies += "org.mongodb.scala"         % "mongo-scala-bson_2.12"         % "2.6.0"
@@ -25,13 +26,12 @@ libraryDependencies += "org.scalatest"             %% "scalatest"               
 libraryDependencies += "org.scalacheck"            %% "scalacheck"                   % "1.14.0" % "test"
 libraryDependencies += "com.typesafe.akka"         %% "akka-stream-testkit"          % "2.5.22" % "test"
 libraryDependencies += "com.typesafe.akka"         %% "akka-http-testkit"            % "10.1.8" % "test"
-libraryDependencies += "com.typesafe.akka"         %% "akka-persistence-query"       % "2.5.22"
-libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8"
-libraryDependencies += "org.iq80.leveldb"          % "leveldb"                       % "0.11"
+libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8" % "test"
+libraryDependencies += "org.iq80.leveldb"          % "leveldb"                       % "0.11" % "test"
 
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
-addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
-addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.0-M4")
+addCompilerPlugin("org.scalamacros" % "paradise"            % "2.1.0" cross CrossVersion.full)
+addCompilerPlugin("org.typelevel"   %% "kind-projector"     % "0.10.0")
+addCompilerPlugin("com.olegpy"      %% "better-monadic-for" % "0.3.0-M4")
 
 scalacOptions ++= Seq(
   "-deprecation", // Emit warning and location for usages of deprecated APIs.
