@@ -50,6 +50,7 @@ class UsersActor[F[_]: Effect](chat: UserChat[F]) extends Actor with ActorLoggin
 }
 
 case object UsersActor {
+
   def props[F[_]: Effect](chat: UserChat[F]): Props =
     Props(new UsersActor(chat))
 

@@ -20,4 +20,3 @@
 * `/reset`     - reset the whole tomodoro cycle
 * `/settings`  - change settings
 * `/stats`     - show stats
-https://img.shields.io/uptimerobot/status/m782472842-da84bea2eff2fb2b088a87ff.svg

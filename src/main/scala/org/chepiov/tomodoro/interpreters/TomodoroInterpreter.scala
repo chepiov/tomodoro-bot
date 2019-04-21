@@ -104,6 +104,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
 }
 
 case object TomodoroInterpreter {
+
   def apply[I[_]: Monad, F[_]: Logger: Monad](
       users: Users[F],
       statistic: Statistic[F],

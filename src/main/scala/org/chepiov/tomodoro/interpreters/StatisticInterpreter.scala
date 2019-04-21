@@ -32,6 +32,7 @@ class StatisticInterpreter[F[_]: Logger: Applicative] extends Statistic[F] {
 }
 
 case object StatisticInterpreter {
+
   def apply[I[_]: Applicative, F[_]: Logger: Applicative](): I[Statistic[F]] =
     for {
       _ <- Applicative[I].unit

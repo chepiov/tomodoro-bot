@@ -70,6 +70,7 @@ class UserActor(
         persist(MessageSentEvent(message))(deliverAfterPersist())
     }
   }
+
   private def deliverAfterPersist(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
     log.debug(s"[$chatId] Message event persisted")
     ack()

@@ -9,7 +9,6 @@ import simulacrum.typeclass
   */
 @typeclass
 trait User[F[_]] {
-
   import User._
 
   /**

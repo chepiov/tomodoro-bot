@@ -167,6 +167,7 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
 }
 
 case object TelegramInterpreter {
+
   def apply[I[_]: Monad, F[_]: Logger: Async](
       config: TelegramConfig
   )(implicit actorSystem: ActorSystem): I[Telegram[F]] =

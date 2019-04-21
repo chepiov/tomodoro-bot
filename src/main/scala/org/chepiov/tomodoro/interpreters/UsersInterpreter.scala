@@ -23,6 +23,7 @@ class UsersInterpreter[F[_]: Logger: Effect](usersActor: ActorRef) extends Users
 }
 
 case object UsersInterpreter {
+
   def apply[I[_]: Applicative, F[_]: Logger: Effect](
       userChat: UserChat[F],
       actorSystem: ActorSystem
