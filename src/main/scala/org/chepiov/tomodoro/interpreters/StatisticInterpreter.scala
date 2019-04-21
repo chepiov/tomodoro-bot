@@ -1,8 +1,11 @@
 package org.chepiov.tomodoro.interpreters
 
 import cats.Applicative
+import cats.effect.Sync
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Statistic
 
 class StatisticInterpreter[F[_]: Logger: Applicative] extends Statistic[F] {
@@ -35,5 +38,9 @@ case object StatisticInterpreter {
       s = new StatisticInterpreter[F]()
     } yield s
 
-  def apply[F[_]: Logger: Applicative](): F[Statistic[F]] = apply[F, F]()
+  def apply[F[_]: Sync](): F[Statistic[F]] =
+    for {
+      implicit0(logger: Logger[F]) <- Slf4jLogger.create
+      s <- apply[F, F]()
+    } yield s
 }

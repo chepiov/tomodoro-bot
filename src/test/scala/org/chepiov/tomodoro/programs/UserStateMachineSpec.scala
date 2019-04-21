@@ -329,7 +329,7 @@ case object UserStateMachineSpec {
       end       <- Gen.choose(start, Long.MaxValue)
     } yield f(remaining, start, end)
 
-  def suspendedStatusGen[A <: SuspendedUserStatus](f: (Int, Long, Long) => A)(startMax: Long, amount: Int): Gen[A] =
+  def suspendedStatusGen[A <: SuspendedStatus](f: (Int, Long, Long) => A)(startMax: Long, amount: Int): Gen[A] =
     for {
       remaining <- Gen.choose(0, amount)
       start     <- Gen.choose(0, startMax)
@@ -339,7 +339,7 @@ case object UserStateMachineSpec {
   def statusGen[A <: Status](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
     statusGen((r, s, _) => f(r, s))(startMax, amount)
 
-  def suspendedStatusGen[A <: SuspendedUserStatus](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
+  def suspendedStatusGen[A <: SuspendedStatus](f: (Int, Long) => A)(startMax: Long, amount: Int): Gen[A] =
     suspendedStatusGen((r, s, _) => f(r, s))(startMax, amount)
 
   val settingsGen: Gen[UserSettings] =
@@ -390,7 +390,7 @@ case object UserStateMachineSpec {
       status   <- statusGen(f)(startMax, settings.amount)
     } yield UserState(settings, status)
 
-  def suspendedStateGen[A <: SuspendedUserStatus](startMax: Long, f: (Int, Long, Long) => A): Gen[UserState] =
+  def suspendedStateGen[A <: SuspendedStatus](startMax: Long, f: (Int, Long, Long) => A): Gen[UserState] =
     for {
       settings <- settingsGen
       status   <- suspendedStatusGen(f)(startMax, settings.amount)
@@ -399,7 +399,7 @@ case object UserStateMachineSpec {
   def stateGen[A <: Status](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
     stateGen(startMax, (r, s, _) => f(r, s))
 
-  def suspendedStateGen[A <: SuspendedUserStatus](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
+  def suspendedStateGen[A <: SuspendedStatus](startMax: Long, f: (Int, Long) => A): Gen[UserState] =
     suspendedStateGen(startMax, (r, s, _) => f(r, s))
 
   val anyCommandAndStateGen: Gen[(Command, UserState)] =
@@ -422,7 +422,7 @@ case object UserStateMachineSpec {
                   stateGen(cmd.time, WorkSuspended),
                   stateGen(cmd.time, BreakSuspended)
                 )
-                .filter(_.status.asInstanceOf[SuspendedUserStatus].suspend > cmd.time)
+                .filter(_.status.asInstanceOf[SuspendedStatus].suspend > cmd.time)
     } yield (cmd, state)
 
   def commandAndFiniteStateGen[C <: Command](cb: (Long, UserSettings) => C): Gen[(Command, UserState)] =
@@ -443,7 +443,7 @@ case object UserStateMachineSpec {
       state <- stateGen(cmd.time, sb)
     } yield (cmd, state)
 
-  def commandAndSuspendedStateGen[C <: Command, S <: SuspendedUserStatus](
+  def commandAndSuspendedStateGen[C <: Command, S <: SuspendedStatus](
       cb: (Long, UserSettings) => C,
       sb: (Int, Long, Long) => S
   ): Gen[(Command, UserState)] =
@@ -458,7 +458,7 @@ case object UserStateMachineSpec {
   ): Gen[(Command, UserState)] =
     commandAndStateGen((t, _) => cb(t), sb)
 
-  def commandAndSuspendedStateGen[C <: Command, S <: SuspendedUserStatus](
+  def commandAndSuspendedStateGen[C <: Command, S <: SuspendedStatus](
       cb: Long => C,
       sb: (Int, Long, Long) => S
   ): Gen[(Command, UserState)] =

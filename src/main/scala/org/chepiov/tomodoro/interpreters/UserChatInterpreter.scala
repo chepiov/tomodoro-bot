@@ -1,10 +1,12 @@
 package org.chepiov.tomodoro.interpreters
 
+import cats.effect.Sync
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, MonadError}
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.{Telegram, UserChat}
 
@@ -32,6 +34,9 @@ case object UserChatInterpreter {
       u = new UserChatInterpreter[F](telegram)
     } yield u
 
-  def apply[F[_]: Logger: MonadError[?[_], Throwable]](telegram: Telegram[F]): F[UserChat[F]] =
-    apply[F, F](telegram)
+  def apply[F[_]: Sync](telegram: Telegram[F]): F[UserChat[F]] =
+    for {
+      implicit0(logger: Logger[F]) <- Slf4jLogger.create
+      uc                           <- apply[F, F](telegram)
+    } yield uc
 }

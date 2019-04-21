@@ -6,6 +6,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Id}
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.actors.UsersActor
 import org.chepiov.tomodoro.actors.UsersActor.GetUser
 import org.chepiov.tomodoro.algebras.{User, UserChat, Users}
@@ -32,8 +33,12 @@ case object UsersInterpreter {
     } yield new UsersInterpreter(usersActor)
   }
 
-  def apply[F[_]: Logger: Effect](
+  def apply[F[_]: Effect](
       userChat: UserChat[F],
       actorSystem: ActorSystem
-  ): F[Users[F]] = apply[F, F](userChat, actorSystem)
+  ): F[Users[F]] =
+    for {
+      implicit0(logger: Logger[F]) <- Slf4jLogger.create
+      u                            <- apply[F, F](userChat, actorSystem)
+    } yield u
 }

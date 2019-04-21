@@ -3,10 +3,12 @@ package org.chepiov.tomodoro.interpreters
 import java.time.OffsetDateTime
 
 import cats.Monad
+import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Telegram._
 import org.chepiov.tomodoro.algebras.User.{apply => _, _}
 import org.chepiov.tomodoro.algebras.{Statistic, Telegram, Tomodoro, Users}
@@ -27,16 +29,15 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
 
   override def handleUpdate(update: TUpdate): F[Unit] = {
     update match {
-      case commandOrQuery(chatId, "/state")    => query(chatId, GetState)
-      case commandOrQuery(chatId, "/start")    => query(chatId, GetState)
-      case commandOrQuery(chatId, "/stats")    => query(chatId, GetStats)
-      case commandOrQuery(chatId, "/help")     => query(chatId, GetHelp)
-      case commandOrQuery(chatId, "/continue") => advance(chatId, Continue)
-      case commandOrQuery(chatId, "/pause")    => advance(chatId, Suspend)
-      case commandOrQuery(chatId, "/reset")    => advance(chatId, Reset)
-      case commandOrQuery(chatId, "/skip")     => advance(chatId, Skip)
-      case commandOrQuery(chatId, "/settings") => advance(chatId, SetSettings)
-      case settingsValue((chatId, value))      => advance(chatId, SetSettingsValue.apply(_, value))
+      case commandOrQuery(chatId, text) if stateSynonyms.contains(text)    => query(chatId, GetState)
+      case commandOrQuery(chatId, text) if statsSynonyms.contains(text)    => query(chatId, GetStats)
+      case commandOrQuery(chatId, text) if helpSynonyms.contains(text)     => query(chatId, GetHelp)
+      case commandOrQuery(chatId, text) if continueSynonyms.contains(text) => advance(chatId, Continue)
+      case commandOrQuery(chatId, text) if pauseSynonyms.contains(text)    => advance(chatId, Suspend)
+      case commandOrQuery(chatId, text) if resetSynonyms.contains(text)    => advance(chatId, Reset)
+      case commandOrQuery(chatId, text) if skipSynonyms.contains(text)     => advance(chatId, Skip)
+      case commandOrQuery(chatId, text) if settingsSynonyms.contains(text) => advance(chatId, SetSettings)
+      case settingsValue((chatId, value))                                  => advance(chatId, SetSettingsValue.apply(_, value))
       case settingsCallbackQuery(chatId, callbackId, cmd) =>
         for {
           _ <- advance(chatId, _ => cmd)
@@ -89,14 +90,14 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
         } yield PushCompletedLastDay
       case LastWeek =>
         for {
-          _         <- Logger[F].debug(s"[$chatId] Getting completed last day statistic")
-          completed <- statistic.getCompletedLastDay(chatId)
+          _         <- Logger[F].debug(s"[$chatId] Getting completed last week statistic")
+          completed <- statistic.getCompletedLastWeek(chatId)
           _         <- Logger[F].debug(s"[$chatId] Completed last day: $completed")
         } yield PushCompletedLastWeek
       case LastMonth =>
         for {
-          _         <- Logger[F].debug(s"[$chatId] Getting completed last day statistic")
-          completed <- statistic.getCompletedLastDay(chatId)
+          _         <- Logger[F].debug(s"[$chatId] Getting completed last month statistic")
+          completed <- statistic.getCompletedLastMonth(chatId)
           _         <- Logger[F].debug(s"[$chatId] Completed last day: $completed")
         } yield PushCompletedLastMonth
     }
@@ -109,18 +110,22 @@ case object TomodoroInterpreter {
       telegram: Telegram[F]
   ): I[Tomodoro[F]] =
     for {
-      _ <- Monad[I].unit
-      t = new TomodoroInterpreter[F](users, statistic, telegram)
+      _              <- Monad[I].unit
+      t: Tomodoro[F] = new TomodoroInterpreter[F](users, statistic, telegram)
     } yield t
 
-  def apply[F[_]: Logger: Monad](
+  def apply[F[_]: Sync](
       users: Users[F],
       statistic: Statistic[F],
       telegram: Telegram[F]
-  ): F[Tomodoro[F]] = apply[F, F](users, statistic, telegram)
+  ): F[Tomodoro[F]] = {
+    for {
+      implicit0(logger: Logger[F]) <- Slf4jLogger.create
+      t                            <- apply[F, F](users, statistic, telegram)
+    } yield t
+  }
 
   private def now: Long = OffsetDateTime.now().toEpochSecond
-
 
   private object commandOrQuery {
     def unapply(update: TUpdate): Option[(Long, String)] = update match {

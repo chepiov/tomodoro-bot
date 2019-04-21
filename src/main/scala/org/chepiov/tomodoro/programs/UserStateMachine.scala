@@ -22,7 +22,7 @@ case object UserStateMachine {
 
   def query(chatId: Long, query: UserInfoQuery, state: UserState): TSendMessage =
     query match {
-      case GetHelp  => helpMsg(chatId, state.settings)
+      case GetHelp  => helpMsg(chatId, state)
       case GetState => stateMsg(chatId, state)
       case GetStats => statsMsg(chatId)
     }
@@ -52,8 +52,9 @@ case object UserStateMachine {
   private object invalidTime {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, status, _), cmd: Command, _, _) if cmd.time < status.startTime => (s, none).some
-        case (s @ UserState(_, status: SuspendedUserStatus, _), cmd: Command, _, _) if cmd.time < status.suspend =>
+        case (s @ UserState(_, status, _), cmd: Command, _, _) if cmd.time < status.startTime =>
+          (s, none).some
+        case (s @ UserState(_, status: SuspendedStatus, _), cmd: Command, _, _) if cmd.time < status.suspend =>
           (s, none).some
         case _ => none
       }
@@ -62,18 +63,20 @@ case object UserStateMachine {
   private object illegalWaitingWork {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, WaitingWork(remaining, _), _), _, _, _) if remaining == 0 => (s, none).some
-        case _                                                                           => none
+        case (s @ UserState(_, WaitingWork(remaining, _), _), _, _, _) if remaining == 0 =>
+          (s, none).some
+        case _ =>
+          none
       }
   }
 
   private object inappropriateStateForContinue {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, _: FiniteUserStatus, _), Continue(_), chatId, _) =>
+        case (s @ UserState(_, _: FiniteStatus, _), Continue(_), chatId, _) =>
           s.status match {
-            case _: Working => (s, alreadyWorkingMsg(chatId)).some
-            case _          => (s, alreadyBreakingMsg(chatId)).some
+            case _: Working => (s, alreadyWorkingMsg(chatId, s).some).some
+            case _          => (s, alreadyBreakingMsg(chatId, s).some).some
           }
         case _ => none
       }
@@ -82,31 +85,41 @@ case object UserStateMachine {
   private object inappropriateStateForFinish {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, _: SuspendedUserStatus, _), Finish(_), _, _) => (s, none).some
-        case (s @ UserState(_, _: WaitingWork, _), Finish(_), _, _)         => (s, none).some
-        case (s @ UserState(_, _: WaitingBreak, _), Finish(_), _, _)        => (s, none).some
-        case _                                                              => none
+        case (s @ UserState(_, _: SuspendedStatus, _), Finish(_), _, _) =>
+          (s, none).some
+        case (s @ UserState(_, _: WaitingWork, _), Finish(_), _, _) =>
+          (s, none).some
+        case (s @ UserState(_, _: WaitingBreak, _), Finish(_), _, _) =>
+          (s, none).some
+        case _ =>
+          none
       }
   }
 
   private object inappropriateStateForSuspend {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, _: SuspendedUserStatus, _), Suspend(_), chatId, _) =>
-          (s, alreadySuspendedMsg(chatId)).some
-        case (s @ UserState(_, _: WaitingWork, _), Suspend(_), chatId, _)  => (s, alreadySuspendedMsg(chatId)).some
-        case (s @ UserState(_, _: WaitingBreak, _), Suspend(_), chatId, _) => (s, alreadySuspendedMsg(chatId)).some
-        case _                                                             => none
+        case (s @ UserState(_, _: SuspendedStatus, _), Suspend(_), chatId, _) =>
+          (s, alreadySuspendedMsg(chatId, s).some).some
+        case (s @ UserState(_, _: WaitingWork, _), Suspend(_), chatId, _) =>
+          (s, alreadySuspendedMsg(chatId, s).some).some
+        case (s @ UserState(_, _: WaitingBreak, _), Suspend(_), chatId, _) =>
+          (s, alreadySuspendedMsg(chatId, s).some).some
+        case _ => none
       }
   }
 
   private object inappropriateStateForSkip {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (s @ UserState(_, _: SuspendedUserStatus, _), Skip(_), chatId, _) => (s, cantSkipMsg(chatId)).some
-        case (s @ UserState(_, _: WaitingWork, _), Skip(_), chatId, _)         => (s, cantSkipMsg(chatId)).some
-        case (s @ UserState(_, _: WaitingBreak, _), Skip(_), chatId, _)        => (s, cantSkipMsg(chatId)).some
-        case _                                                                 => none
+        case (s @ UserState(_, _: SuspendedStatus, _), Skip(_), chatId, _) =>
+          (s, cantSkipMsg(chatId, s).some).some
+        case (s @ UserState(_, _: WaitingWork, _), Skip(_), chatId, _) =>
+          (s, cantSkipMsg(chatId, s).some).some
+        case (s @ UserState(_, _: WaitingBreak, _), Skip(_), chatId, _) =>
+          (s, cantSkipMsg(chatId, s).some).some
+        case _ =>
+          none
       }
   }
 
@@ -154,10 +167,11 @@ case object UserStateMachine {
   private object resetCmd {
     def unapply(uc: (UserState, Command, Long, TimeUnit)): Option[(UserState, Option[TSendMessage])] =
       uc match {
-        case (us @ UserState(settings @ UserSettings(_, _, _, a), _, _), Reset(t), chatId, _) =>
+        case (us @ UserState(UserSettings(_, _, _, a), _, _), Reset(t), chatId, _) =>
           val remaining = a
           val start     = t
-          (us.copy(status = WaitingWork(remaining, start)), resetMsg(chatId, settings)).some
+          val state     = us.copy(status = WaitingWork(remaining, start))
+          (state, resetMsg(chatId, state).some).some
         case _ => none
       }
   }
@@ -173,25 +187,29 @@ case object UserStateMachine {
         val remaining = r - 1
         val start     = t
         val end       = start + toSeconds(d, timeUnit)
-        (us.copy(status = Working(remaining, start, end)), workingMsg(chatId, remaining, end, afterPause = false))
+        val state     = us.copy(status = Working(remaining, start, end))
+        (state, workingMsg(chatId, state, end, afterPause = false).some)
       case (us @ UserState(UserSettings(_, sb, lb, _), WaitingBreak(r, _), _), Continue(t)) =>
         val remaining = r
         val start     = t
         val end       = if (r == 0) start + toSeconds(lb, timeUnit) else start + toSeconds(sb, timeUnit)
-        (us.copy(status = Breaking(remaining, start, end)), breakingMsg(chatId, remaining, end))
+        val state     = us.copy(status = Breaking(remaining, start, end))
+        (state, breakingMsg(chatId, state, end).some)
       case (us @ UserState(UserSettings(d, _, _, _), WorkSuspended(r, startedAt, suspendAt), _), Continue(t)) =>
         val remaining = r
         val start     = t
         val worked    = suspendAt - startedAt
         val end       = start + toSeconds(d, timeUnit) - worked
-        (us.copy(status = Working(remaining, start, end)), workingMsg(chatId, remaining, end, afterPause = true))
+        val state     = us.copy(status = Working(remaining, start, end))
+        (state, workingMsg(chatId, state, end, afterPause = true).some)
       case (us @ UserState(UserSettings(_, sb, lb, _), BreakSuspended(r, startedAt, suspendAt), _), Continue(t)) =>
         val remaining = r
         val start     = t
         val suspend   = suspendAt - startedAt
         val end =
           if (remaining == 0) start + toSeconds(lb, timeUnit) - suspend else start + toSeconds(sb, timeUnit) - suspend
-        (us.copy(status = Breaking(remaining, start, end)), breakingAfterPauseMsg(chatId, remaining, end))
+        val state = us.copy(status = Breaking(remaining, start, end))
+        (state, breakingAfterPauseMsg(chatId, state, end).some)
       case _ => (s, none)
     }
 
@@ -204,11 +222,13 @@ case object UserStateMachine {
       case (us @ UserState(UserSettings(_, _, _, _), Working(r, _, _), _), Finish(t)) =>
         val remaining = r
         val start     = t
-        (us.copy(status = WaitingBreak(remaining, start)), waitingBreakMsg(chatId, remaining))
+        val state     = us.copy(status = WaitingBreak(remaining, start))
+        (state, waitingBreakMsg(chatId, state).some)
       case (us @ UserState(UserSettings(_, _, _, a), Breaking(r, _, _), _), Finish(t)) =>
         val remaining = if (r == 0) a else r
         val start     = t
-        (us.copy(status = WaitingWork(remaining, start)), waitingWorkMsg(chatId, remaining))
+        val state     = us.copy(status = WaitingWork(remaining, start))
+        (state, waitingWorkMsg(chatId, state).some)
       case _ => (s, none)
     }
 
@@ -222,12 +242,14 @@ case object UserStateMachine {
         val remaining = r
         val start     = startedAt
         val suspend   = t
-        (us.copy(status = WorkSuspended(remaining, start, suspend)), suspendedMsg(chatId, work = true))
+        val state     = us.copy(status = WorkSuspended(remaining, start, suspend))
+        (state, suspendedMsg(chatId, state, work = true).some)
       case (us @ UserState(UserSettings(_, _, _, _), Breaking(r, startedAt, _), _), Suspend(t)) =>
         val remaining = r
         val start     = startedAt
         val suspend   = t
-        (us.copy(status = BreakSuspended(remaining, start, suspend)), suspendedMsg(chatId, work = false))
+        val state     = us.copy(status = BreakSuspended(remaining, start, suspend))
+        (state, suspendedMsg(chatId, state, work = false).some)
       case _ => (s, none)
     }
 
@@ -237,13 +259,24 @@ case object UserStateMachine {
       s: UserState
   ): (UserState, Option[TSendMessage]) =
     (s, cmd) match {
-      case (us, SetSettings(_))                                   => (us, setSettingsMsg(chatId, us.settings))
-      case (us, AwaitChangingDuration(t))                         => (us.copy(settingsUpdate = DurationUpdate(t)), durationMsg(chatId))
-      case (us, AwaitChangingLongBreak(t))                        => (us.copy(settingsUpdate = LongBreakUpdate(t)), longBreakMsg(chatId))
-      case (us, AwaitChangingShortBreak(t))                       => (us.copy(settingsUpdate = ShortBreakUpdate(t)), shortBreakMsg(chatId))
-      case (us, AwaitChangingAmount(t))                           => (us.copy(settingsUpdate = AmountUpdate(t)), amountMsg(chatId))
-      case (us @ UserState(_, _, NotUpdate), _: SetSettingsValue) => (us, none)
-      case (us, SetSettingsValue(_, value)) if value <= 0         => (us, invalidValueMsg(chatId))
+      case (us, SetSettings(_)) =>
+        (us, setSettingsMsg(chatId, us.settings).some)
+      case (us, AwaitChangingDuration(t)) =>
+        val state = us.copy(settingsUpdate = DurationUpdate(t))
+        (state, durationMsg(chatId, state).some)
+      case (us, AwaitChangingLongBreak(t)) =>
+        val state = us.copy(settingsUpdate = LongBreakUpdate(t))
+        (state, longBreakMsg(chatId, state).some)
+      case (us, AwaitChangingShortBreak(t)) =>
+        val state = us.copy(settingsUpdate = ShortBreakUpdate(t))
+        (state, shortBreakMsg(chatId, state).some)
+      case (us, AwaitChangingAmount(t)) =>
+        val state = us.copy(settingsUpdate = AmountUpdate(t))
+        (state, amountMsg(chatId, state).some)
+      case (us @ UserState(_, _, NotUpdate), _: SetSettingsValue) =>
+        (us, none)
+      case (us, SetSettingsValue(_, value)) if value <= 0 =>
+        (us, invalidValueMsg(chatId, us).some)
       case (us @ UserState(settings, _, settingsUpdate), SetSettingsValue(_, value)) if value > 0 =>
         val updatedSettings = settingsUpdate match {
           case _: DurationUpdate   => settings.copy(duration = value)
@@ -252,7 +285,8 @@ case object UserStateMachine {
           case _: AmountUpdate     => settings.copy(amount = value)
           case _                   => settings
         }
-        (us.copy(settings = updatedSettings, settingsUpdate = NotUpdate), settingsUpdatedMsg(chatId))
+        val state = us.copy(settings = updatedSettings, settingsUpdate = NotUpdate)
+        (state, settingsUpdatedMsg(chatId, state).some)
       case _ => (s, none)
     }
 }

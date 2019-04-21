@@ -50,8 +50,9 @@ class UserActor(
 
   private def receiveCommand(cmd: Command, ack: () => Unit): Unit = {
     log.debug(s"[$chatId] Command $cmd received")
-    UserStateMachine.advance(chatId, cmd, timeUnit).run(state).value match {
-      case (s, maybeMessage) =>
+    val result = UserStateMachine.advance(chatId, cmd, timeUnit).run(state).value
+    result match {
+      case (s, maybeMessage) if s != state =>
         timerState(s.status)
         persist(StateChangedEvent(chatId, s)) { evt =>
           log.debug(s"[$chatId] State event persisted: ${evt.state}")
@@ -63,6 +64,10 @@ class UserActor(
             persist(MessageSentEvent(message))(deliverAfterPersist())
           }
         }
+      case (_, Some(message)) =>
+        log.debug(s"[$chatId] State was not changed: $state")
+        ack()
+        persist(MessageSentEvent(message))(deliverAfterPersist())
     }
   }
   private def deliverAfterPersist(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
@@ -83,7 +88,7 @@ class UserActor(
 
   private def timerState(status: Status): Unit =
     status match {
-      case s: FiniteUserStatus =>
+      case s: FiniteStatus =>
         val currentTime = now
         val time        = if (s.endTime < currentTime) currentTime else s.endTime
         val duration    = max(s.endTime - currentTime, 0)

@@ -12,6 +12,7 @@ import cats.effect.Async
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Telegram
 import org.chepiov.tomodoro.algebras.Telegram._
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
@@ -174,7 +175,11 @@ case object TelegramInterpreter {
       t = new TelegramInterpreter[F](config)
     } yield t
 
-  def apply[F[_]: Logger: Async](
+  def apply[F[_]: Async](
       config: TelegramConfig
-  )(implicit actorSystem: ActorSystem): F[Telegram[F]] = apply[F, F](config)
+  )(implicit actorSystem: ActorSystem): F[Telegram[F]] =
+    for {
+      implicit0(logger: Logger[F]) <- Slf4jLogger.create
+      t                            <- apply[F, F](config)
+    } yield t
 }

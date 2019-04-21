@@ -9,7 +9,7 @@ import cats.effect.{ExitCode, IO, IOApp}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Telegram.TelegramConfig
-import org.chepiov.tomodoro.http.resourceHttp
+import org.chepiov.tomodoro.http.RouteHandler
 import org.chepiov.tomodoro.interpreters._
 import pureconfig.generic.auto._
 import pureconfig.module.catseffect._
@@ -20,7 +20,7 @@ object Main extends IOApp {
 
   def actorSystem: IO[ActorSystem] = IO(ActorSystem("tomodoro"))
 
-  def runServer(route: Route)(implicit system: ActorSystem, config: HttpConfig, logger: Logger[IO]): IO[Unit] =
+  def runServer(route: Route, config: HttpConfig, logger: Logger[IO])(implicit system: ActorSystem): IO[Unit] =
     for {
       _ <- IO.fromFuture(IO {
             implicit val mat: ActorMaterializer = ActorMaterializer()
@@ -31,18 +31,19 @@ object Main extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] =
     for {
-      implicit0(logger: Logger[IO])     <- Slf4jLogger.create[IO]
-      implicit0(system: ActorSystem)    <- actorSystem
-      implicit0(httpConfig: HttpConfig) <- loadConfigF[IO, HttpConfig]("http")
-      telegramConfig                    <- loadConfigF[IO, TelegramConfig]("telegram")
-      telegram                          <- TelegramInterpreter[IO](telegramConfig)
-      userChat                          <- UserChatInterpreter[IO](telegram)
-      users                             <- UsersInterpreter[IO](userChat, system)
-      statistic                         <- StatisticInterpreter[IO]()
-      tomodoro                          <- TomodoroInterpreter[IO](users, statistic, telegram)
-      updateRoute                       = resourceHttp.updateRoute(s"${telegramConfig.token}", tomodoro)
-      infoRoute                         = resourceHttp.infoRoute("info", tomodoro)
-      _                                 <- runServer(updateRoute ~ infoRoute)
+      implicit0(system: ActorSystem) <- actorSystem
+      telegramConfig                 <- loadConfigF[IO, TelegramConfig]("telegram")
+      telegram                       <- TelegramInterpreter[IO](telegramConfig)
+      userChat                       <- UserChatInterpreter[IO](telegram)
+      users                          <- UsersInterpreter[IO](userChat, system)
+      statistic                      <- StatisticInterpreter[IO]()
+      tomodoro                       <- TomodoroInterpreter[IO](users, statistic, telegram)
+      httpConfig                     <- loadConfigF[IO, HttpConfig]("http")
+      logger                         <- Slf4jLogger.create[IO]
+      routeHandler                   = new RouteHandler(httpConfig, logger)
+      updateRoute                    = routeHandler.updateRoute(s"${telegramConfig.token}", tomodoro)
+      infoRoute                      = routeHandler.infoRoute("info", tomodoro)
+      _                              <- runServer(updateRoute ~ infoRoute, httpConfig, logger)
     } yield ExitCode.Success
 }
 

@@ -22,7 +22,7 @@ class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) ex
 
   override def info(query: UserInfoQuery): F[Unit] =
     for {
-      _ <- Logger[F].debug(s"s[$chatId] Querying user, query: $query")
+      _ <- Logger[F].debug(s"[$chatId] Querying user, query: $query")
       ack <- Async[F].async[Unit] { k =>
               userActor ! QueryMsg(query, () => k(Right(())))
             }
@@ -30,7 +30,7 @@ class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) ex
 
   override def stats(query: UserStatsResult): F[Unit] =
     for {
-      _ <- Logger[F].debug(s"s[$chatId] Pushing user statistic, query: $query")
+      _ <- Logger[F].debug(s"[$chatId] Pushing user statistic, query: $query")
       ack <- Async[F].async[Unit] { k =>
               userActor ! StatsMsg(query, () => k(Right(())))
             }

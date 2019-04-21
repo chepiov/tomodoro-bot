@@ -78,7 +78,7 @@ case object User {
   /**
     * Status which should be finished after some period.
     */
-  sealed trait FiniteUserStatus extends Status {
+  sealed trait FiniteStatus extends Status {
 
     /**
       * When the status should be completed.
@@ -91,7 +91,7 @@ case object User {
   /**
     * Status which was suspended.
     */
-  sealed trait SuspendedUserStatus extends Status {
+  sealed trait SuspendedStatus extends Status {
     def suspend: Long
   }
 
@@ -108,22 +108,22 @@ case object User {
   /**
     * Tomodoro working
     */
-  final case class Working(remaining: Int, startTime: Long, endTime: Long) extends FiniteUserStatus
+  final case class Working(remaining: Int, startTime: Long, endTime: Long) extends FiniteStatus
 
   /**
     * Tomodoro breaking.
     */
-  final case class Breaking(remaining: Int, startTime: Long, endTime: Long) extends FiniteUserStatus
+  final case class Breaking(remaining: Int, startTime: Long, endTime: Long) extends FiniteStatus
 
   /**
     * Current tomodoro suspended.
     */
-  final case class WorkSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedUserStatus
+  final case class WorkSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedStatus
 
   /**
     * Current break suspended.
     */
-  final case class BreakSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedUserStatus
+  final case class BreakSuspended(remaining: Int, startTime: Long, suspend: Long) extends SuspendedStatus
 
   /**
     * Settings update state.
