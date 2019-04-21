@@ -28,15 +28,12 @@ class RouteHandler(config: HttpConfig, logger: Logger[IO])(implicit cs: ContextS
     }
   }
 
-  def infoRoute(prefix: String, tomodoro: Tomodoro[IO]): Route = {
+  def infoRoute(prefix: String, tomodoro: Tomodoro[IO]): Route =
     pathPrefix(prefix) {
-      post {
-        entity(as[TUpdate]) { update =>
-          complete(tomodoro.handleUpdate(update))
-        }
+      get {
+        complete(tomodoro.getInfo)
       }
     }
-  }
 
   implicit def toResponseMarshaller[A: JsonWriter](
       implicit cs: ContextShift[IO],
