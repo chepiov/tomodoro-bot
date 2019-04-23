@@ -1,16 +1,17 @@
 package org.chepiov.tomodoro.actors
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import cats.effect.Effect
 import org.chepiov.tomodoro.actors.UserActor.{ChatMsg, ChatMsgConfirm}
-import org.chepiov.tomodoro.algebras.UserChat
+import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
-class UserChatActor[F[_]: Effect](chatId: Long, userChat: UserChat[F]) extends Actor {
+class UserChatActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]]) extends Actor with ActorLogging {
 
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout     = 5.seconds
@@ -18,15 +19,20 @@ class UserChatActor[F[_]: Effect](chatId: Long, userChat: UserChat[F]) extends A
   override def receive: Receive = {
     case a: ChatMsg =>
       Effect[F]
-        .toIO(userChat.sayTo(chatId, a.msg))
+        .toIO(chat(a.msg))
         .unsafeToFuture()
-        .filter(identity)
+        .filter {
+          case Success(_) => true
+          case Failure(e) =>
+            log.error(e, s"Error during sending ${a.msg} to user chat")
+            false
+        }
         .map(_ => ChatMsgConfirm(a.deliveryId)) pipeTo sender()
       ()
   }
 }
 
 case object UserChatActor {
-  def props[F[_]: Effect](chatId: Long, messenger: UserChat[F]): Props =
-    Props(new UserChatActor(chatId, messenger))
+  def props[F[_]: Effect](chat: TSendMessage => F[Try[Unit]]): Props =
+    Props(new UserChatActor(chat))
 }

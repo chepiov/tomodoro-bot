@@ -25,7 +25,7 @@ class UserActor(
   //noinspection ActorMutableStateInspection
   private var state: UserState = UserState(defaultSettings, WaitingWork(defaultSettings.amount, now), NotUpdate)
 
-  override def persistenceId: String = chatId.toString
+  override def persistenceId: String = s"user-$chatId"
 
   override def receiveCommand: Receive = {
     case CommandMsg(cmd, ack) =>
@@ -54,7 +54,7 @@ class UserActor(
     result match {
       case (s, maybeMessage) if s != state =>
         timerState(s.status)
-        persist(StateChangedEvent(chatId, s)) { evt =>
+        persist(StateChangedEvent(chatId, s, cmd)) { evt =>
           log.debug(s"[$chatId] State event persisted: ${evt.state}")
           ack()
           state = evt.state
@@ -105,16 +105,17 @@ class UserActor(
 
 case object UserActor {
 
+
   def props(
-      chatId: Long,
-      chat: ActorSelection,
-      timeUnit: TimeUnit = MINUTES,
-      defaultSettings: UserSettings = defaultUserSettings,
-      snapshotInterval: Int = 1000
+    chatId: Long,
+    chat: ActorSelection,
+    timeUnit: TimeUnit = MINUTES,
+    defaultSettings: UserSettings = defaultUserSettings,
+    snapshotInterval: Int = 1000
   ): Props =
     Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
 
-  final case class StateChangedEvent(chatId: Long, state: UserState)
+  final case class StateChangedEvent(chatId: Long, state: UserState, cmd: Command)
 
   final case class CommandMsg(cmd: Command, ask: () => Unit)
   final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)

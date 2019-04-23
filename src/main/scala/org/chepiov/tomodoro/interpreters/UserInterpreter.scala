@@ -3,6 +3,7 @@ package org.chepiov.tomodoro.interpreters
 import akka.actor.ActorRef
 import cats.Monad
 import cats.effect.Async
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.chrisdavenport.log4cats.Logger
@@ -42,8 +43,5 @@ case object UserInterpreter {
       chatId: Long,
       userActor: ActorRef
   ): I[User[F]] =
-    for {
-      _ <- Monad[I].unit
-      u = new UserInterpreter[F](chatId, userActor)
-    } yield u
+    (new UserInterpreter[F](chatId, userActor): User[F]).pure[I]
 }

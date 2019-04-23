@@ -9,6 +9,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.{ActorMaterializer, Materializer}
 import cats.Monad
 import cats.effect.Async
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.chrisdavenport.log4cats.Logger
@@ -27,8 +28,8 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
 
   private val uri = s"${config.scheme}://${config.host}/bot${config.token}"
 
-  private val matF = Async[F].delay(ActorMaterializer())
-  private val ecF  = Async[F].delay(actorSystem.dispatcher)
+  implicit val mat: Materializer    = ActorMaterializer()
+  implicit val ec: ExecutionContext = actorSystem.dispatcher
 
   override def sendMessage(message: TSendMessage): F[Unit] =
     for {
@@ -60,39 +61,30 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     } yield resp.result
 
   private def getResponse(request: HttpRequest): F[HttpResponse] =
-    for {
-      implicit0(ec: ExecutionContext) <- ecF
-      response <- Async[F].async[HttpResponse] { k =>
-                   Http().singleRequest(request).onComplete {
-                     case Success(resp) => k(Right(resp))
-                     case Failure(e)    => k(Left(e))
-                   }
-                 }
-    } yield response
+    Async[F].async[HttpResponse] { k =>
+      Http().singleRequest(request).onComplete {
+        case Success(resp) => k(Right(resp))
+        case Failure(e)    => k(Left(e))
+      }
+    }
 
   private def checkResponse(response: HttpResponse, method: String): F[Unit] =
-    for {
-      result <- if (response.status != StatusCodes.OK)
-                 for {
-                   _ <- Logger[F].error(s"Error during $method, status code: ${response.status}")
-                   _ <- discard(response)
-                   r <- error(response, method)
-                 } yield r
-               else Async[F].unit
-    } yield result
+    if (response.status != StatusCodes.OK)
+      for {
+        _ <- Logger[F].error(s"Error during $method, status code: ${response.status}")
+        _ <- discard(response)
+        r <- error(response, method)
+      } yield r
+    else Async[F].unit
 
   private def discard(response: HttpResponse): F[Unit] =
-    for {
-      implicit0(mat: Materializer) <- matF
-      _                            <- Async[F].delay(response.discardEntityBytes())
-    } yield ()
+    Async[F].delay(response.discardEntityBytes()).map(_ => ())
 
   private def error(response: HttpResponse, method: String): F[Unit] =
     Async[F].raiseError[Unit](new RuntimeException(s"Error during $method, status code: ${response.status}"))
 
   private def marshal[A: RootJsonFormat](message: A, path: String): F[HttpRequest] =
     for {
-      implicit0(ec: ExecutionContext) <- ecF
       entity <- Async[F].async[RequestEntity] { k =>
                  Marshal(message).to[RequestEntity].onComplete {
                    case Success(r) => k(Right(r))
@@ -102,16 +94,12 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     } yield HttpRequest(method = HttpMethods.POST, uri = Uri(s"$uri/$path"), entity = entity)
 
   private def unmarshal[A: RootJsonFormat](response: HttpResponse): F[A] =
-    for {
-      implicit0(ec: ExecutionContext) <- ecF
-      implicit0(mat: Materializer)    <- matF
-      result <- Async[F].async[A] { k =>
-                 Unmarshal(response.entity).to[A].onComplete {
-                   case Success(r) => k(Right(r))
-                   case Failure(e) => k(Left(e))
-                 }
-               }
-    } yield result
+    Async[F].async[A] { k =>
+      Unmarshal(response.entity).to[A].onComplete {
+        case Success(r) => k(Right(r))
+        case Failure(e) => k(Left(e))
+      }
+    }
 }
 
 private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
@@ -171,10 +159,7 @@ case object TelegramInterpreter {
   def apply[I[_]: Monad, F[_]: Logger: Async](
       config: TelegramConfig
   )(implicit actorSystem: ActorSystem): I[Telegram[F]] =
-    for {
-      _ <- Monad[I].unit
-      t = new TelegramInterpreter[F](config)
-    } yield t
+    (new TelegramInterpreter[F](config): Telegram[F]).pure[I]
 
   def apply[F[_]: Async](
       config: TelegramConfig

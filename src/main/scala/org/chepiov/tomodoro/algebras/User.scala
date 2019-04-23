@@ -183,7 +183,7 @@ case object User {
   final case class Skip(time: Long) extends UserCommand
 
   /**
-    * Setting new settings command.
+    * Update settings command.
     */
   final case class SetSettings(time: Long) extends UserCommand
 

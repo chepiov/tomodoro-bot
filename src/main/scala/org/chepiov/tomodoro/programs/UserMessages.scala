@@ -112,15 +112,15 @@ object UserMessages {
        | `/settings`  - change settings
        | `/stats`     - show stats
        |
-       | ${stateText(state)}
+       |${stateText(state)}
     """.stripMargin
 
   private def settingsText(settings: UserSettings): String =
     s"""
-       | Tomodoro duration: ${settings.duration} minutes
-       | Short break duration: ${settings.shortBreak} minutes
-       | Long break duration: ${settings.longBreak} minutes
-       | Amount of tomodoroes in cycle: ${settings.amount} tomodoroes
+       |  Tomodoro *duration*: ${settings.duration} minutes
+       |  *Short break* duration: ${settings.shortBreak} minutes
+       |  *Long break* duration: ${settings.longBreak} minutes
+       |  *Amount* of tomodoroes in cycle: ${settings.amount} tomodoroes
     """.stripMargin
 
   private def stateText(state: UserState): String = {

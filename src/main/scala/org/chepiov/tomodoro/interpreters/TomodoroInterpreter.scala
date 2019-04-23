@@ -71,7 +71,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
       user    <- users.getOrCreateUser(chatId)
       command = cmd(now)
       _       <- Logger[F].debug(s"[$chatId] Received $command command")
-      r       <- user.advance(cmd(now))
+      r       <- user.advance(command)
     } yield r
 
   private def getStats(chatId: Long, statsType: StatsType): F[UserStatsResult] =

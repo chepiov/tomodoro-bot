@@ -9,14 +9,14 @@ import akka.testkit.TestKit
 import cats.effect.IO
 import cats.syntax.option._
 import org.chepiov.tomodoro.algebras.Telegram._
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{Assertion, AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
 import spray.json._
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 class TelegramJsonSpec
-    extends TestKit(ActorSystem("TelegramSpec")) with WordSpecLike with Matchers with BeforeAndAfterAll {
+    extends TestKit(ActorSystem("TelegramSpec")) with AsyncWordSpecLike with Matchers with BeforeAndAfterAll {
   import TelegramJsonSpec._
   import TelegramJsonSupport._
 
@@ -26,6 +26,9 @@ class TelegramJsonSpec
 
   implicit val ec: ExecutionContext = system.dispatcher
   implicit val mat: Materializer    = ActorMaterializer()
+
+  implicit def toFuture(io: IO[Assertion]): Future[Assertion] =
+    io.unsafeToFuture()
 
   "Telegram ReplyKeyboardMessage" should {
     "be serialized correctly" in {
@@ -37,22 +40,20 @@ class TelegramJsonSpec
     }
 
     "be serialized to entity correctly" in {
-      val p = for {
+      for {
         entity <- IO.fromFuture(IO(Marshal(replyKeyboardMessage).to[RequestEntity]))
         strict <- IO.fromFuture(IO(entity.toStrict(5.seconds)))
         json   = strict.data.utf8String.parseJson
       } yield json shouldBe replyKeyboardMessageJson
-      p.unsafeRunSync()
     }
   }
 
   "Telegram TResponse" should {
     "be de-serialized from entity correctly" in {
-      val p = for {
+      for {
         entity   <- IO(HttpEntity(ContentTypes.`application/json`, userMessageJson.compactPrint))
         response <- IO.fromFuture(IO(Unmarshal(entity).to[TResponse[TUser]]))
       } yield response shouldBe tResponseMessage
-      p.unsafeRunSync()
     }
   }
 }
