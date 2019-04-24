@@ -32,7 +32,7 @@ case object UsersInterpreter {
   ): I[Users[F]] = {
     for {
       _          <- Applicative[I].unit
-      chat       = new UserChat(telegram)
+      chat       = new UserChat(telegram).sayTo _
       statistic  = new UserStatistic(repository).consume _
       usersActor = actorSystem.actorOf(UsersActor.props(chat, statistic), "users")
     } yield new UsersInterpreter(usersActor)

@@ -4,6 +4,7 @@ import java.time.OffsetDateTime
 
 import cats.syntax.option._
 import enumeratum.{EnumEntry, _}
+import org.chepiov.tomodoro.algebras.Repository.StatLog
 import org.chepiov.tomodoro.algebras.Telegram._
 import org.chepiov.tomodoro.algebras.User._
 
@@ -89,51 +90,23 @@ case object UserMessages {
   def invalidValueMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, invalidValueText, state)
 
-  def statsResultMsg(chatId: Long, result: UserStatsResult, state: UserState): TSendMessage =
-    result match {
-      case r: ActivityResult           => logsMsg(chatId, r)
-      case r: CompletedLastDayResult   => completedLastDayMsg(chatId, r, state)
-      case r: CompletedLastWeekResult  => completedLastWeekMsg(chatId, r, state)
-      case r: CompletedLastMonthResult => completedLastMonthMsg(chatId, r, state)
-    }
+  def logsMsg(chatId: Long, page: Int, logs: List[StatLog]): TSendMessage =
+    TSendMessage(chatId, logsText(logs), logsKeyboard(page, logs.isEmpty))
 
-  def statsResultEditMsg(chatId: Long, messageId: Long, result: UserStatsResult): TEditMessage =
-    result match {
-      case r: ActivityResult           => logsEditMsg(chatId, messageId, r)
-      case r: CompletedLastDayResult   => completedLastDayEditMsg(chatId, messageId, r)
-      case r: CompletedLastWeekResult  => completedLastWeekEditMsg(chatId, messageId, r)
-      case r: CompletedLastMonthResult => completedLastMonthEditMsg(chatId, messageId, r)
-    }
+  def logsEditMsg(chatId: Long, messageId: Long, page: Int, logs: List[StatLog]): TEditMessage =
+    TEditMessage(chatId, messageId, logsText(logs), logsKeyboard(page, logs.isEmpty))
 
-  def logsMsg(chatId: Long, result: ActivityResult): TSendMessage =
-    TSendMessage(chatId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
+  def completedLastDayMsg(chatId: Long, count: Int): TSendMessage =
+    TSendMessage(chatId, completedLastDayText(count))
 
-  def completedLastDayMsg(chatId: Long, result: CompletedLastDayResult, state: UserState): TSendMessage =
-    message(chatId, completedLastDayText(result.count), state)
+  def completedLastWeekMsg(chatId: Long, count: Int): TSendMessage =
+    TSendMessage(chatId, completedLastWeekText(count))
 
-  def completedLastWeekMsg(chatId: Long, result: CompletedLastWeekResult, state: UserState): TSendMessage =
-    message(chatId, completedLastWeek(result.count), state)
-
-  def completedLastMonthMsg(chatId: Long, result: CompletedLastMonthResult, state: UserState): TSendMessage =
-    message(chatId, completedLastMonth(result.count), state)
-
-  def logsEditMsg(chatId: Long, messageId: Long, result: ActivityResult): TEditMessage =
-    TEditMessage(chatId, messageId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
-
-  def completedLastDayEditMsg(chatId: Long, messageId: Long, result: CompletedLastDayResult): TEditMessage =
-    editMessage(chatId, messageId, completedLastDayText(result.count))
-
-  def completedLastWeekEditMsg(chatId: Long, messageId: Long, result: CompletedLastWeekResult): TEditMessage =
-    editMessage(chatId, messageId, completedLastWeek(result.count))
-
-  def completedLastMonthEditMsg(chatId: Long, messageId: Long, result: CompletedLastMonthResult): TEditMessage =
-    editMessage(chatId, messageId, completedLastMonth(result.count))
+  def completedLastMonthMsg(chatId: Long, count: Int): TSendMessage =
+    TSendMessage(chatId, completedLastMonthText(count))
 
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
-
-  private def editMessage(chatId: Long, messageId: Long, text: String): TEditMessage =
-    TEditMessage(chatId, messageId, text)
 }
 
 case object UserMessageData {
@@ -292,7 +265,7 @@ private[programs] case object UserMessageTexts {
        |${stateText(state)}
        |""".stripMargin
 
-  def logsText(logs: List[Log]): String =
+  def logsText(logs: List[StatLog]): String =
     if (logs.nonEmpty)
       logs.map(_.log).mkString("\n")
     else "There is no activity"
@@ -300,10 +273,10 @@ private[programs] case object UserMessageTexts {
   def completedLastDayText(count: Int): String =
     s"You've completed $count tomodoroes on the last day"
 
-  def completedLastWeek(count: Int): String =
+  def completedLastWeekText(count: Int): String =
     s"You've completed $count tomodoroes on the last week"
 
-  def completedLastMonth(count: Int): String =
+  def completedLastMonthText(count: Int): String =
     s"You've completed $count tomodoroes on the last month"
 
   val durationText: String        = "Say new *duration* (in minutes)"

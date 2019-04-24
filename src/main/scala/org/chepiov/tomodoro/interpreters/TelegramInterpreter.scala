@@ -35,7 +35,9 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     for {
       request  <- marshal(message, "sendMessage")
       _        <- Logger[F].debug(s"[${message.chatId}] sendMessage method call")
+      _        <- Logger[F].trace(s"[${message.chatId}] Request: $request")
       response <- getResponse(request)
+      _        <- Logger[F].trace(s"[${message.chatId}] Response: $response")
       _        <- checkResponse(response, "sendMessage")
       _        <- discard(response)
       r        <- Logger[F].debug(s"[${message.chatId}] sendMessage result status: ${response.status}")
@@ -45,7 +47,9 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     for {
       request  <- marshal(answer, "answerCallbackQuery")
       _        <- Logger[F].debug(s"answerCallbackQuery method call")
+      _        <- Logger[F].trace(s"Request: $request")
       response <- getResponse(request)
+      _        <- Logger[F].trace(s"Response: $response")
       _        <- checkResponse(response, "answerCallbackQuery")
       r        <- Logger[F].debug(s"answerCallbackQuery result status: ${response.status}")
     } yield r
@@ -54,7 +58,9 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     for {
       request  <- marshal(message, "editMessageText")
       _        <- Logger[F].debug(s"[${message.chatId}] editMessageText method call")
+      _        <- Logger[F].trace(s"[${message.chatId}] Request: $request")
       response <- getResponse(request)
+      _        <- Logger[F].trace(s"[${message.chatId}] Response: $response")
       _        <- checkResponse(response, "editMessageText")
       r        <- Logger[F].debug(s"editMessageText result status: ${response.status}")
     } yield r
@@ -63,7 +69,9 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     for {
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
       _        <- Logger[F].debug(s"getMe method call")
+      _        <- Logger[F].trace(s"Request: $request")
       response <- getResponse(request)
+      _        <- Logger[F].trace(s"Response: $response")
       _        <- checkResponse(response, "getMe")
       _        <- Logger[F].debug(s"getMe result status: ${response.status}")
       resp     <- unmarshal[TResponse[TUser]](response)

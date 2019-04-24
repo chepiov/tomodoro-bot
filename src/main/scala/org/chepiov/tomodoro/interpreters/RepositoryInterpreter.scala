@@ -13,20 +13,19 @@ import doobie.postgres.implicits._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Repository
-import org.chepiov.tomodoro.algebras.User.Log
-import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor
-import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor.TomodoroFinished
+import org.chepiov.tomodoro.algebras.Repository.StatDescriptor.TomodoroFinished
+import org.chepiov.tomodoro.algebras.Repository.{StatDescriptor, StatLog}
 
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
 
-  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[Log]] =
+  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[StatLog]] =
     for {
       logs <- SQL.findLogs(chatId, offset, limit).to[List].transact(xa)
       _    <- Logger[F].debug(s"[$chatId] Found logs, limit: $limit, offset: $offset, size: ${logs.size}")
     } yield logs
 
-  override def addLog(log: Log): F[Unit] =
+  override def addLog(log: StatLog): F[Unit] =
     for {
       id <- SQL.addLog(log).withUniqueGeneratedKeys[UUID]("id").transact(xa)
       r  <- Logger[F].debug(s"[${log.chatId}] Log added with id: $id")
@@ -69,13 +68,13 @@ case object RepositorySQL {
   implicit val statTypeMeta: Meta[StatDescriptor] =
     Meta[String].timap(StatDescriptor.withName)(_.entryName)
 
-  def addLog(log: Log): Update0 =
+  def addLog(log: StatLog): Update0 =
     sql"""
          INSERT into user_log(chat_id, time, descriptor, log)
          VALUES(${log.chatId}, ${log.time}, ${log.descriptor}, ${log.log})
        """.update
 
-  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[Log] =
+  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[StatLog] =
     sql"""
          SELECT chat_id, time, descriptor, log
          FROM user_log
@@ -83,7 +82,7 @@ case object RepositorySQL {
          ORDER BY time DESC
          LIMIT $limit
          OFFSET $offset
-       """.query[Log]
+       """.query[StatLog]
 
   def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): Query0[Int] =
     sql"""

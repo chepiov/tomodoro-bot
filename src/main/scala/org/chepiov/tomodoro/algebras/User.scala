@@ -1,8 +1,5 @@
 package org.chepiov.tomodoro.algebras
 
-import java.time.OffsetDateTime
-
-import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor
 import simulacrum.typeclass
 
 /**
@@ -27,14 +24,6 @@ trait User[F[_]] {
     * @param query to use
     */
   def info(query: UserInfoQuery): F[Unit]
-
-  /**
-    * Handles sending user statistic.
-    *
-    * @param query to use
-    * @param messageId to edit, if present
-    */
-  def stats(query: UserStatsResult, messageId: Option[Long] = None): F[Unit]
 }
 
 case object User {
@@ -216,25 +205,4 @@ case object User {
   case object GetHelp extends UserInfoQuery
 
   case object GetStats extends UserInfoQuery
-
-  /**
-    * User statistic results.
-    */
-  final case class Log(
-      chatId: Long,
-      time: OffsetDateTime,
-      descriptor: StatDescriptor,
-      log: String
-  )
-
-  sealed trait UserStatsResult extends Product with Serializable
-
-  final case class ActivityResult(page: Int, logs: List[Log]) extends UserStatsResult
-
-  final case class CompletedLastDayResult(count: Int) extends UserStatsResult
-
-  final case class CompletedLastWeekResult(count: Int) extends UserStatsResult
-
-  final case class CompletedLastMonthResult(count: Int) extends UserStatsResult
-
 }

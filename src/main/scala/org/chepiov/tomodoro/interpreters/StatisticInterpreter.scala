@@ -10,52 +10,59 @@ import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import org.chepiov.tomodoro.algebras.User._
-import org.chepiov.tomodoro.algebras.{Repository, Statistic}
+import org.chepiov.tomodoro.algebras.{Repository, Statistic, Telegram}
+import org.chepiov.tomodoro.programs.UserMessages._
 
-class StatisticInterpreter[F[_]: Logger: Monad](repository: Repository[F]) extends Statistic[F] {
+class StatisticInterpreter[F[_]: Logger: Monad](telegram: Telegram[F], repository: Repository[F]) extends Statistic[F] {
 
   private val pageSize = 10
 
-  override def getLog(chatId: Long, page: Int): F[ActivityResult] =
+  override def sendActivity(chatId: Long, page: Int, messageId: Option[Long] = None): F[Unit] =
     for {
-      _    <- Logger[F].debug(s"[$chatId] Finding user log, page: $page")
+      _    <- Logger[F].debug(s"[] Finding user activity, page: $page, messageId: $messageId")
       logs <- repository.findLogs(chatId, pageSize * page, pageSize)
-    } yield ActivityResult(page, logs)
+      r <- messageId match {
+            case Some(id) => telegram.editMessageText(logsEditMsg(chatId, id, page, logs))
+            case None     => telegram.sendMessage(logsMsg(chatId, page, logs))
+          }
+    } yield r
 
-  override def getCompletedLastDay(chatId: Long): F[CompletedLastDayResult] =
+  override def sendCompletedLastDay(chatId: Long): F[Unit] =
     for {
       _         <- Logger[F].debug(s"[$chatId] Counting completed last day")
       now       = OffsetDateTime.now()
       dayBefore = now.minus(1, ChronoUnit.DAYS)
       cnt       <- repository.countCompleted(chatId, dayBefore, now)
-    } yield CompletedLastDayResult(cnt)
+      r         <- telegram.sendMessage(completedLastDayMsg(chatId, cnt))
+    } yield r
 
-  override def getCompletedLastWeek(chatId: Long): F[CompletedLastWeekResult] =
+  override def sendCompletedLastWeek(chatId: Long): F[Unit] =
     for {
       _          <- Logger[F].debug(s"[$chatId] Counting completed last week")
       now        = OffsetDateTime.now()
       weekBefore = now.minus(1, ChronoUnit.WEEKS)
       cnt        <- repository.countCompleted(chatId, weekBefore, now)
-    } yield CompletedLastWeekResult(cnt)
+      r          <- telegram.sendMessage(completedLastWeekMsg(chatId, cnt))
+    } yield r
 
-  override def getCompletedLastMonth(chatId: Long): F[CompletedLastMonthResult] =
+  override def sendCompletedLastMonth(chatId: Long): F[Unit] =
     for {
-      _                 <- Logger[F].debug(s"[$chatId] Counting completed last month")
-      now               = OffsetDateTime.now()
-      monthBeforeBefore = now.minus(1, ChronoUnit.MONTHS)
-      cnt               <- repository.countCompleted(chatId, monthBeforeBefore, now)
-    } yield CompletedLastMonthResult(cnt)
+      _           <- Logger[F].debug(s"[$chatId] Counting completed last month")
+      now         = OffsetDateTime.now()
+      monthBefore = now.minus(1, ChronoUnit.MONTHS)
+      cnt         <- repository.countCompleted(chatId, monthBefore, now)
+      r           <- telegram.sendMessage(completedLastMonthMsg(chatId, cnt))
+    } yield r
 }
 
 case object StatisticInterpreter {
 
-  def apply[I[_]: Applicative, F[_]: Logger: Monad](repository: Repository[F]): I[Statistic[F]] =
-    (new StatisticInterpreter[F](repository): Statistic[F]).pure[I]
+  def apply[I[_]: Applicative, F[_]: Logger: Monad](telegram: Telegram[F], repository: Repository[F]): I[Statistic[F]] =
+    (new StatisticInterpreter[F](telegram, repository): Statistic[F]).pure[I]
 
-  def apply[F[_]: Sync](repository: Repository[F]): F[Statistic[F]] =
+  def apply[F[_]: Sync](telegram: Telegram[F], repository: Repository[F]): F[Statistic[F]] =
     for {
       implicit0(logger: Logger[F]) <- Slf4jLogger.create
-      s                            <- apply[F, F](repository)
+      s                            <- apply[F, F](telegram, repository)
     } yield s
 }

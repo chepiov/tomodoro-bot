@@ -48,19 +48,15 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
         } yield r
       case statsCallbackQuery(chatId, callbackId, statsType) =>
         for {
-          _     <- Logger[F].debug(s"[$chatId] Received stats callback query, type: $statsType")
-          stats <- getStats(chatId, statsType)
-          user  <- users.getOrCreateUser(chatId)
-          _     <- user.stats(stats)
-          r     <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
+          _ <- Logger[F].debug(s"[$chatId] Received stats callback query, type: $statsType")
+          _ <- sendStats(chatId, statsType)
+          r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
       case statsLogCallbackQuery(chatId, messageId, callbackId, page) =>
         for {
-          _                  <- Logger[F].debug(s"[$chatId] Received log page callback query, page: $page")
-          stats              <- getLog(chatId, page)
-          user               <- users.getOrCreateUser(chatId)
-          _                  <- user.stats(stats, messageId.some)
-          r                  <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
+          _ <- Logger[F].debug(s"[$chatId] Received log page callback query, page: $page")
+          _ <- sendActivity(chatId, page, messageId.some)
+          r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
       case _ => for (r <- Logger[F].warn(s"Unknown update: $update")) yield r
     }
@@ -85,34 +81,31 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
       r       <- user.advance(command)
     } yield r
 
-  private def getLog(chatId: Long, page: Int): F[ActivityResult] =
+  private def sendActivity(chatId: Long, page: Int, messageId: Option[Long] = None): F[Unit] =
     for {
-      _   <- Logger[F].debug(s"[$chatId] Getting log statistic")
-      log <- statistic.getLog(chatId, page)
-    } yield log
+      _ <- Logger[F].debug(s"[$chatId] Sending activity log")
+      r <- statistic.sendActivity(chatId, page, messageId)
+    } yield r
 
-  private def getStats(chatId: Long, statsData: StatsData): F[UserStatsResult] =
+  private def sendStats(chatId: Long, statsData: StatsData): F[Unit] =
     statsData match {
       case StatsData.StatsLogData =>
-        for {
-          _   <- Logger[F].debug(s"[$chatId] Getting log statistic")
-          log <- statistic.getLog(chatId, 0)
-        } yield log
+        sendActivity(chatId, 0)
       case StatsData.StatsCountPerDayData =>
         for {
-          _         <- Logger[F].debug(s"[$chatId] Getting completed last day statistic")
-          completed <- statistic.getCompletedLastDay(chatId)
-        } yield completed
+          _ <- Logger[F].debug(s"[$chatId] Sending completed last day statistic")
+          r <- statistic.sendCompletedLastDay(chatId)
+        } yield r
       case StatsData.StatsCountPerWeekData =>
         for {
-          _         <- Logger[F].debug(s"[$chatId] Getting completed last week statistic")
-          completed <- statistic.getCompletedLastWeek(chatId)
-        } yield completed
+          _ <- Logger[F].debug(s"[$chatId] Sending completed last week statistic")
+          r <- statistic.sendCompletedLastWeek(chatId)
+        } yield r
       case StatsData.StatsCountPerMonthData =>
         for {
-          _         <- Logger[F].debug(s"[$chatId] Getting completed last month statistic")
-          completed <- statistic.getCompletedLastMonth(chatId)
-        } yield completed
+          _ <- Logger[F].debug(s"[$chatId] Sending completed last month statistic")
+          r <- statistic.sendCompletedLastMonth(chatId)
+        } yield r
     }
 }
 
@@ -174,13 +167,10 @@ case object TomodoroInterpreter {
 
   private object statsLogCallbackQuery {
     def unapply(update: TUpdate): Option[(Long, Long, String, Int)] = update match {
-      case TUpdate(
-          _,
-          None,
-          Some(TCallbackQuery(callbackId, _, Some(TMessage(messageId, TChat(chatId), _)), Some(data)))
-          ) if data.startsWith(StatsData.StatsLogData.entryName) =>
+      case TUpdate(_, None, Some(TCallbackQuery(cbId, _, Some(TMessage(mId, TChat(chatId), _)), Some(data))))
+          if data.startsWith(StatsData.StatsLogData.entryName) =>
         Try(data.replaceFirst(s"${StatsData.StatsLogData.entryName}:", "").toInt).toOption
-          .map(p => (chatId, messageId, callbackId, p))
+          .map(p => (chatId, mId, cbId, p))
       case _ => none
     }
   }

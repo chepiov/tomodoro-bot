@@ -10,6 +10,8 @@
 ***
 **Telegram bot for the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique).**
 
+**Under active development!**
+
 [Click here](https://telegram.me/tomodoroBot) to join. 
 
 ### Available commands:

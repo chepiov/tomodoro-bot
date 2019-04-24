@@ -5,7 +5,7 @@ import java.time.OffsetDateTime
 import akka.actor.{ActorLogging, ActorSelection, Props, Timers}
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted, SnapshotOffer}
-import org.chepiov.tomodoro.algebras.Telegram.{TEditMessage, TSendMessage}
+import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras.Users.defaultUserSettings
 import org.chepiov.tomodoro.programs.UserStateMachine
@@ -34,13 +34,7 @@ class UserActor(
       receiveCommand(cmd, () => ())
     case QueryMsg(query, ack) =>
       log.debug(s"[$chatId] Query $query received")
-      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverNew(ack))
-    case StatsMsg(result, ack, None) =>
-      log.debug(s"[$chatId] Stats new message $result received")
-      persist(MessageSentEvent(UserStateMachine.stats(chatId, result, state)))(deliverNew(ack))
-    case StatsMsg(result, ack, Some(messageId)) =>
-      log.debug(s"[$chatId] Stats edit message $result received, messageId: $messageId")
-      persist(MessageEditedEvent(UserStateMachine.stats(chatId, messageId, result)))(deliverEdited(ack))
+      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverMsg(ack))
     case ChatMsgConfirm(deliveryId) =>
       persist(MessageConfirmedEvent(deliveryId)) { evt =>
         confirmDelivery(evt.deliveryId)
@@ -64,33 +58,26 @@ class UserActor(
           if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
             saveSnapshot(state)
           maybeMessage.foreach { message =>
-            persist(MessageSentEvent(message))(deliverNew())
+            persist(MessageSentEvent(message))(deliverMsg())
           }
         }
       case (_, Some(message)) =>
         log.debug(s"[$chatId] State was not changed: $state")
         ack()
-        persist(MessageSentEvent(message))(deliverNew())
+        persist(MessageSentEvent(message))(deliverMsg())
     }
   }
 
-  private def deliverNew(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
+  private def deliverMsg(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
     log.debug(s"[$chatId] New message event persisted")
     ack()
     deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
-  }
-
-  private def deliverEdited(ack: () => Unit)(evt: MessageEditedEvent): Unit = {
-    log.debug(s"[$chatId] Edit message event persisted")
-    ack()
-    deliver(userChat)(deliveryId => ChatEditMsg(deliveryId, evt.message))
   }
 
   override def receiveRecover: Receive = {
     case evt: StateChangedEvent                => state = evt.state
     case SnapshotOffer(_, snapshot: UserState) => state = snapshot
     case MessageSentEvent(message)             => deliver(userChat)(deliveryId => ChatMsg(deliveryId, message))
-    case MessageEditedEvent(message)           => deliver(userChat)(deliveryId => ChatEditMsg(deliveryId, message))
     case MessageConfirmedEvent(deliveryId)     => confirmDelivery(deliveryId); ()
     case RecoveryCompleted =>
       timerState(state.status)
@@ -128,14 +115,11 @@ case object UserActor {
 
   final case class CommandMsg(cmd: Command, ask: () => Unit)
   final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
-  final case class StatsMsg(query: UserStatsResult, ask: () => Unit, messageId: Option[Long] = None)
 
   final case class MessageSentEvent(message: TSendMessage)
-  final case class MessageEditedEvent(message: TEditMessage)
   final case class MessageConfirmedEvent(deliveryId: Long)
 
   final case class ChatMsg(deliveryId: Long, msg: TSendMessage)
-  final case class ChatEditMsg(deliveryId: Long, msg: TEditMessage)
   final case class ChatMsgConfirm(deliveryId: Long)
 
   private def now: Long = OffsetDateTime.now().toEpochSecond
