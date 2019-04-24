@@ -89,18 +89,28 @@ case object UserMessages {
   def invalidValueMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, invalidValueText, state)
 
-  def statsResultMsg(chatId: Long, result: UserStatsResult): TSendMessage =
+  def statsResultMsg(chatId: Long, result: UserStatsResult, state: UserState): TSendMessage =
     result match {
-      case r: PushLog => logsMsg(chatId, r)
-      case _          => TSendMessage(chatId, s"Not yet implemented, sorry, descriptor: $result")
+      case r: PushLog                => logsMsg(chatId, r)
+      case r: PushCompletedLastDay   => completedLastDayMsg(chatId, r, state)
+      case r: PushCompletedLastWeek  => completedLastWeekMsg(chatId, r, state)
+      case r: PushCompletedLastMonth => completedLastMonthMsg(chatId, r, state)
     }
 
   def logsMsg(chatId: Long, result: PushLog): TSendMessage =
     TSendMessage(chatId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
 
+  def completedLastDayMsg(chatId: Long, result: PushCompletedLastDay, state: UserState): TSendMessage =
+    message(chatId, completedLastDayText(result.count), state)
+
+  def completedLastWeekMsg(chatId: Long, result: PushCompletedLastWeek, state: UserState): TSendMessage =
+    message(chatId, completedLastWeek(result.count), state)
+
+  def completedLastMonthMsg(chatId: Long, result: PushCompletedLastMonth, state: UserState): TSendMessage =
+    message(chatId, completedLastMonth(result.count), state)
+
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
-
 }
 
 case object UserMessageData {
@@ -259,10 +269,19 @@ private[programs] case object UserMessageTexts {
        |${stateText(state)}
        |""".stripMargin
 
-  private[programs] def logsText(logs: List[Log]): String =
+  def logsText(logs: List[Log]): String =
     if (logs.nonEmpty)
       logs.map(_.log).mkString("\n")
     else "There is no activity"
+
+  def completedLastDayText(count: Int): String =
+    s"You've completed $count tomodoroes on the last day"
+
+  def completedLastWeek(count: Int): String =
+    s"You've completed $count tomodoroes on the last week"
+
+  def completedLastMonth(count: Int): String =
+    s"You've completed $count tomodoroes on the last month"
 
   val durationText: String        = "Say new *duration* (in minutes)"
   val longBreakText: String       = "Say new *long break* duration (in minutes)"

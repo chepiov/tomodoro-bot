@@ -14,6 +14,8 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Repository
 import org.chepiov.tomodoro.algebras.User.Log
+import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor
+import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor.TomodoroFinished
 
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
@@ -29,6 +31,12 @@ class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repo
       id <- SQL.addLog(log).withUniqueGeneratedKeys[UUID]("id").transact(xa)
       r  <- Logger[F].debug(s"[${log.chatId}] Log added with id: $id")
     } yield r
+
+  override def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): F[Int] =
+    for {
+      cnt <- SQL.countCompleted(chatId, from, to).unique.transact(xa)
+      _   <- Logger[F].debug(s"[$chatId] Found $cnt completed tomodoroes between $from and $to")
+    } yield cnt
 
 }
 
@@ -59,6 +67,9 @@ case object RepositorySQL {
   implicit val odtMeta: Meta[OffsetDateTime] =
     Meta[Instant].timap(i => OffsetDateTime.ofInstant(i, ZoneOffset.UTC))(odt => odt.toInstant)
 
+  implicit val statTypeMeta: Meta[StatDescriptor] =
+    Meta[String].timap(StatDescriptor.withName)(_.entryName)
+
   def addLog(log: Log): Update0 =
     sql"""
          INSERT into user_log(chat_id, time, descriptor, log)
@@ -74,4 +85,13 @@ case object RepositorySQL {
          LIMIT $limit
          OFFSET $offset
        """.query[Log]
+
+  def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): Query0[Int] =
+    sql"""
+         SELECT count(id)
+         FROM user_log
+         WHERE chat_id = $chatId
+         AND time BETWEEN $from AND $to
+         AND descriptor = ${TomodoroFinished: StatDescriptor}
+       """.query[Int]
 }

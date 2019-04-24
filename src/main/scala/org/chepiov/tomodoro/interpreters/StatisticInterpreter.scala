@@ -1,5 +1,8 @@
 package org.chepiov.tomodoro.interpreters
 
+import java.time.OffsetDateTime
+import java.time.temporal.ChronoUnit
+
 import cats.effect.Sync
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
@@ -22,18 +25,27 @@ class StatisticInterpreter[F[_]: Logger: Monad](repository: Repository[F]) exten
 
   override def getCompletedLastDay(chatId: Long): F[UserStatsResult] =
     for {
-      _ <- Logger[F].debug(s"[$chatId] Not yet implemented")
-    } yield PushCompletedLastDay
+      _         <- Logger[F].debug(s"[$chatId] Counting completed last day")
+      now       = OffsetDateTime.now()
+      dayBefore = now.minus(1, ChronoUnit.DAYS)
+      cnt       <- repository.countCompleted(chatId, dayBefore, now)
+    } yield PushCompletedLastDay(cnt)
 
   override def getCompletedLastWeek(chatId: Long): F[UserStatsResult] =
     for {
-      _ <- Logger[F].debug(s"[$chatId] Not yet implemented")
-    } yield PushCompletedLastWeek
+      _          <- Logger[F].debug(s"[$chatId] Counting completed last week")
+      now        = OffsetDateTime.now()
+      weekBefore = now.minus(1, ChronoUnit.WEEKS)
+      cnt        <- repository.countCompleted(chatId, weekBefore, now)
+    } yield PushCompletedLastWeek(cnt)
 
   override def getCompletedLastMonth(chatId: Long): F[UserStatsResult] =
     for {
-      _ <- Logger[F].debug(s"[$chatId] Not yet implemented")
-    } yield PushCompletedLastMonth
+      _                 <- Logger[F].debug(s"[$chatId] Counting completed last month")
+      now               = OffsetDateTime.now()
+      monthBeforeBefore = now.minus(1, ChronoUnit.MONTHS)
+      cnt               <- repository.countCompleted(chatId, monthBeforeBefore, now)
+    } yield PushCompletedLastMonth(cnt)
 }
 
 case object StatisticInterpreter {

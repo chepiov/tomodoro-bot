@@ -42,7 +42,7 @@ class UserStatistic[F[_]: ApplicativeError[?[_], Throwable]](repository: Reposit
 }
 
 case object UserStatistic {
-  import org.chepiov.tomodoro.interpreters.hooks.StatType._
+  import org.chepiov.tomodoro.interpreters.hooks.StatDescriptor._
 
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a XXX")
 
@@ -51,7 +51,7 @@ case object UserStatistic {
       case StateChangedEvent(chatId, UserState(_, Working(remaining, startTime, _), _), _: Continue) =>
         val time = at(startTime)
         val log  = TomodoroStarted.log.format(formatter.format(time), remaining)
-        Log(chatId, time, TomodoroStarted.entryName, log).some
+        Log(chatId, time, TomodoroStarted, log).some
       case _ => none
     }
   }
@@ -62,11 +62,11 @@ case object UserStatistic {
           if remaining == settings.amount =>
         val time = at(startTime)
         val log  = CycleFinished.log.format(formatter.format(time))
-        Log(chatId, time, CycleFinished.entryName, log).some
+        Log(chatId, time, CycleFinished, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingBreak(remaining, startTime), _), _: Finish) =>
         val time = at(startTime)
         val log  = TomodoroFinished.log.format(formatter.format(time), remaining)
-        Log(chatId, time, TomodoroFinished.entryName, log).some
+        Log(chatId, time, TomodoroFinished, log).some
       case _ => none
     }
   }
@@ -77,11 +77,11 @@ case object UserStatistic {
           if remaining == 0 =>
         val time = at(startTime)
         val log  = LongBreakStarted.log.format(formatter.format(time))
-        Log(chatId, time, LongBreakStarted.entryName, log).some
+        Log(chatId, time, LongBreakStarted, log).some
       case StateChangedEvent(chatId, UserState(_, Breaking(_, startTime, _), _), _: Continue) =>
         val time = at(startTime)
         val log  = ShortBreakStarted.log.format(formatter.format(time))
-        Log(chatId, time, ShortBreakStarted.entryName, log).some
+        Log(chatId, time, ShortBreakStarted, log).some
       case _ => none
     }
   }
@@ -91,11 +91,11 @@ case object UserStatistic {
       case StateChangedEvent(chatId, UserState(_, WaitingWork(remaining, startTime), _), _: Finish) if remaining == 0 =>
         val time = at(startTime)
         val log  = ShortBreakFinished.log.format(formatter.format(time))
-        Log(chatId, time, ShortBreakFinished.entryName, log).some
+        Log(chatId, time, ShortBreakFinished, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingWork(_, startTime), _), _: Finish) =>
         val time = at(startTime)
         val log  = LongBreakFinished.log.format(formatter.format(time))
-        Log(chatId, time, LongBreakFinished.entryName, log).some
+        Log(chatId, time, LongBreakFinished, log).some
       case _ => none
     }
   }
@@ -105,11 +105,11 @@ case object UserStatistic {
       case StateChangedEvent(chatId, UserState(_, WorkSuspended(_, _, suspendTime), _), _: Suspend) =>
         val time = at(suspendTime)
         val log  = TomodoroPaused.log.format(formatter.format(time))
-        Log(chatId, time, TomodoroPaused.entryName, log).some
+        Log(chatId, time, TomodoroPaused, log).some
       case StateChangedEvent(chatId, UserState(_, BreakSuspended(_, _, suspendTime), _), _: Suspend) =>
         val time = at(suspendTime)
         val log  = BreakPaused.log.format(formatter.format(time))
-        Log(chatId, time, BreakPaused.entryName, log).some
+        Log(chatId, time, BreakPaused, log).some
       case _ => none
     }
   }
@@ -119,11 +119,11 @@ case object UserStatistic {
       case StateChangedEvent(chatId, UserState(_, WaitingBreak(_, startTime), _), _: Skip) =>
         val time = at(startTime)
         val log  = TomodoroSkipped.log.format(formatter.format(time))
-        Log(chatId, time, TomodoroSkipped.entryName, log).some
+        Log(chatId, time, TomodoroSkipped, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingWork(_, startTime), _), _: Skip) =>
         val time = at(startTime)
         val log  = BreakSkipped.log.format(formatter.format(time))
-        Log(chatId, time, BreakSkipped.entryName, log).some
+        Log(chatId, time, BreakSkipped, log).some
       case _ => none
     }
   }
@@ -133,7 +133,7 @@ case object UserStatistic {
       case StateChangedEvent(chatId, _, Reset(startTime)) =>
         val time = at(startTime)
         val log  = CycleReset.log.format(formatter.format(time))
-        Log(chatId, time, CycleReset.entryName, log).some
+        Log(chatId, time, CycleReset, log).some
       case _ => none
     }
   }
@@ -143,7 +143,7 @@ case object UserStatistic {
       case StateChangedEvent(chatId, UserState(_, _, _), SetSettings(startTime)) =>
         val time = at(startTime)
         val log  = SettingsUpdated.log.format(formatter.format(time))
-        Log(chatId, time, SettingsUpdated.entryName, log).some
+        Log(chatId, time, SettingsUpdated, log).some
       case _ => none
     }
   }
@@ -152,62 +152,62 @@ case object UserStatistic {
     OffsetDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC)
 }
 
-sealed trait StatType extends EnumEntry with Uppercase {
+sealed trait StatDescriptor extends EnumEntry with Uppercase {
   def log: String
 }
 
-object StatType extends Enum[StatType] {
-  override def values: immutable.IndexedSeq[StatType] = findValues
+object StatDescriptor extends Enum[StatDescriptor] {
+  override def values: immutable.IndexedSeq[StatDescriptor] = findValues
 
-  case object CycleFinished extends StatType {
+  case object CycleFinished extends StatDescriptor {
     override def log: String = "Cycle finished at: %s"
   }
 
-  case object TomodoroFinished extends StatType {
+  case object TomodoroFinished extends StatDescriptor {
     override def log: String = "Tomodoro finished at: %s, remaining tomodoroes: %d"
   }
 
-  case object ShortBreakFinished extends StatType {
+  case object ShortBreakFinished extends StatDescriptor {
     override def log: String = "Short break finished at: %s"
   }
 
-  case object LongBreakFinished extends StatType {
+  case object LongBreakFinished extends StatDescriptor {
     override def log: String = "Long break finished at: %s"
   }
 
-  case object TomodoroPaused extends StatType {
+  case object TomodoroPaused extends StatDescriptor {
     override def log: String = "Tomodoro paused at: %s"
   }
 
-  case object BreakPaused extends StatType {
+  case object BreakPaused extends StatDescriptor {
     override def log: String = "Break paused at: %s"
   }
 
-  case object TomodoroStarted extends StatType {
+  case object TomodoroStarted extends StatDescriptor {
     override def log: String = "Tomodoro started or continued at: %s, remaining tomodoroes: %d"
   }
 
-  case object ShortBreakStarted extends StatType {
+  case object ShortBreakStarted extends StatDescriptor {
     override def log: String = "Short break started or continued at: %s"
   }
 
-  case object LongBreakStarted extends StatType {
+  case object LongBreakStarted extends StatDescriptor {
     override def log: String = "Long break started or continued at: %s"
   }
 
-  case object TomodoroSkipped extends StatType {
+  case object TomodoroSkipped extends StatDescriptor {
     override def log: String = "Tomodoro skipped at: %s"
   }
 
-  case object BreakSkipped extends StatType {
+  case object BreakSkipped extends StatDescriptor {
     override def log: String = "Break skipped at: %s"
   }
 
-  case object SettingsUpdated extends StatType {
+  case object SettingsUpdated extends StatDescriptor {
     override def log: String = "Settings updated at: %s"
   }
 
-  case object CycleReset extends StatType {
+  case object CycleReset extends StatDescriptor {
     override def log: String = "Cycle reset at: %s"
   }
 }
