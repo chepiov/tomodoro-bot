@@ -34,13 +34,13 @@ class UserActor(
       receiveCommand(cmd, () => ())
     case QueryMsg(query, ack) =>
       log.debug(s"[$chatId] Query $query received")
-      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverNewAfterPersist(ack))
+      persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverNew(ack))
     case StatsMsg(result, ack, None) =>
       log.debug(s"[$chatId] Stats new message $result received")
-      persist(MessageSentEvent(UserStateMachine.stats(chatId, result, state)))(deliverNewAfterPersist(ack))
+      persist(MessageSentEvent(UserStateMachine.stats(chatId, result, state)))(deliverNew(ack))
     case StatsMsg(result, ack, Some(messageId)) =>
       log.debug(s"[$chatId] Stats edit message $result received, messageId: $messageId")
-      persist(MessageEditedEvent(UserStateMachine.stats(chatId, messageId, result)))(deliverEditedAfterPersist(ack))
+      persist(MessageEditedEvent(UserStateMachine.stats(chatId, messageId, result)))(deliverEdited(ack))
     case ChatMsgConfirm(deliveryId) =>
       persist(MessageConfirmedEvent(deliveryId)) { evt =>
         confirmDelivery(evt.deliveryId)
@@ -64,23 +64,23 @@ class UserActor(
           if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
             saveSnapshot(state)
           maybeMessage.foreach { message =>
-            persist(MessageSentEvent(message))(deliverNewAfterPersist())
+            persist(MessageSentEvent(message))(deliverNew())
           }
         }
       case (_, Some(message)) =>
         log.debug(s"[$chatId] State was not changed: $state")
         ack()
-        persist(MessageSentEvent(message))(deliverNewAfterPersist())
+        persist(MessageSentEvent(message))(deliverNew())
     }
   }
 
-  private def deliverNewAfterPersist(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
+  private def deliverNew(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
     log.debug(s"[$chatId] New message event persisted")
     ack()
     deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
   }
 
-  private def deliverEditedAfterPersist(ack: () => Unit)(evt: MessageEditedEvent): Unit = {
+  private def deliverEdited(ack: () => Unit)(evt: MessageEditedEvent): Unit = {
     log.debug(s"[$chatId] Edit message event persisted")
     ack()
     deliver(userChat)(deliveryId => ChatEditMsg(deliveryId, evt.message))
