@@ -32,8 +32,9 @@ trait User[F[_]] {
     * Handles sending user statistic.
     *
     * @param query to use
+    * @param messageId to edit, if present
     */
-  def stats(query: UserStatsResult): F[Unit]
+  def stats(query: UserStatsResult, messageId: Option[Long] = None): F[Unit]
 }
 
 case object User {
@@ -225,14 +226,15 @@ case object User {
       descriptor: StatDescriptor,
       log: String
   )
+
   sealed trait UserStatsResult extends Product with Serializable
 
-  final case class PushLog(page: Int, logs: List[Log]) extends UserStatsResult
+  final case class ActivityResult(page: Int, logs: List[Log]) extends UserStatsResult
 
-  final case class PushCompletedLastDay(count: Int) extends UserStatsResult
+  final case class CompletedLastDayResult(count: Int) extends UserStatsResult
 
-  final case class PushCompletedLastWeek(count: Int) extends UserStatsResult
+  final case class CompletedLastWeekResult(count: Int) extends UserStatsResult
 
-  final case class PushCompletedLastMonth(count: Int) extends UserStatsResult
+  final case class CompletedLastMonthResult(count: Int) extends UserStatsResult
 
 }

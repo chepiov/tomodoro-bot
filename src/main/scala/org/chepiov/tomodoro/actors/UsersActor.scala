@@ -5,12 +5,12 @@ import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, Supe
 import akka.pattern.{BackoffOpts, BackoffSupervisor}
 import cats.effect.Effect
 import org.chepiov.tomodoro.actors.UserActor.StateChangedEvent
-import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
+import org.chepiov.tomodoro.interpreters.hooks.UserChat
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class UsersActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateChangedEvent => F[Try[Unit]])
+class UsersActor[F[_]: Effect](chat: UserChat[F], stat: StateChangedEvent => F[Try[Unit]])
     extends Actor with ActorLogging {
   import UsersActor._
   import context._
@@ -66,7 +66,7 @@ class UsersActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateCh
 
 case object UsersActor {
 
-  def props[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateChangedEvent => F[Try[Unit]]): Props =
+  def props[F[_]: Effect](chat: UserChat[F], stat: StateChangedEvent => F[Try[Unit]]): Props =
     Props(new UsersActor(chat, stat))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)

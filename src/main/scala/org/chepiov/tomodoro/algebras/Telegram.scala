@@ -10,6 +10,7 @@ import simulacrum.typeclass
   */
 @typeclass
 trait Telegram[F[_]] {
+
   import Telegram._
 
   /**
@@ -27,6 +28,14 @@ trait Telegram[F[_]] {
     * @see [[https://core.telegram.org/bots/api#answercallbackquery]]
     */
   def answerCallbackQuery(answer: TCallbackAnswer): F[Unit]
+
+  /**
+    * editMessageText method.
+    *
+    * @param message to send
+    * @see [[https://core.telegram.org/bots/api#editmessagetext]]
+    */
+  def editMessageText(message: TEditMessage): F[Unit]
 
   /**
     * getMe method.
@@ -49,14 +58,14 @@ case object Telegram {
   final case class TelegramConfig(token: String, host: String, scheme: String)
 
   /**
-    *  @see [[https://core.telegram.org/bots/api#user]].
+    * @see [[https://core.telegram.org/bots/api#user]].
     */
   final case class TUser(
-      id: Long,
-      isBot: Boolean,
-      firstName: String,
-      lastName: Option[String],
-      username: Option[String]
+    id: Long,
+    isBot: Boolean,
+    firstName: String,
+    lastName: Option[String],
+    username: Option[String]
   )
 
   /**
@@ -68,18 +77,18 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#message]].
     */
   final case class TMessage(
-      messageId: Long,
-      chat: TChat,
-      text: Option[String]
+    messageId: Long,
+    chat: TChat,
+    text: Option[String]
   )
 
   /**
     * @see [[https://core.telegram.org/bots/api#getting-updates]].
     */
   final case class TUpdate(
-      updateId: Long,
-      message: Option[TMessage],
-      callbackQuery: Option[TCallbackQuery]
+    updateId: Long,
+    message: Option[TMessage],
+    callbackQuery: Option[TCallbackQuery]
   )
 
   /**
@@ -91,10 +100,10 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#sendmessage]].
     */
   final case class TSendMessage(
-      chatId: Long,
-      text: String,
-      replyMarkup: Option[TReplyMarkup] = None,
-      parseMode: String = "Markdown"
+    chatId: Long,
+    text: String,
+    replyMarkup: Option[TReplyMarkup] = None,
+    parseMode: String = "Markdown"
   )
 
   /**
@@ -132,4 +141,14 @@ case object Telegram {
     */
   final case class TResponse[A](ok: Boolean, result: A)
 
+  /**
+    * @see [[https://core.telegram.org/bots/api#editmessagetext]]
+    */
+  final case class TEditMessage(
+    chatId: Long,
+    messageId: Long,
+    text: String,
+    replyMarkup: Option[TInlineKeyboardMarkup] = None,
+    parseMode: String = "Markdown"
+  )
 }

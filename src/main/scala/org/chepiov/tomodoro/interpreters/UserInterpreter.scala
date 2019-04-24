@@ -29,11 +29,11 @@ class UserInterpreter[F[_]: Logger: Async](chatId: Long, userActor: ActorRef) ex
             }
     } yield ack
 
-  override def stats(query: UserStatsResult): F[Unit] =
+  override def stats(query: UserStatsResult, messageId: Option[Long] = None): F[Unit] =
     for {
       _ <- Logger[F].debug(s"[$chatId] Pushing user statistic, query: $query")
       ack <- Async[F].async[Unit] { k =>
-              userActor ! StatsMsg(query, () => k(Right(())))
+              userActor ! StatsMsg(query, () => k(Right(())), messageId)
             }
     } yield ack
 }

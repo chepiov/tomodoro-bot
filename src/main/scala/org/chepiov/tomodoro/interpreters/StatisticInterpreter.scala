@@ -17,35 +17,35 @@ class StatisticInterpreter[F[_]: Logger: Monad](repository: Repository[F]) exten
 
   private val pageSize = 10
 
-  override def getLog(chatId: Long, page: Int): F[UserStatsResult] =
+  override def getLog(chatId: Long, page: Int): F[ActivityResult] =
     for {
       _    <- Logger[F].debug(s"[$chatId] Finding user log, page: $page")
       logs <- repository.findLogs(chatId, pageSize * page, pageSize)
-    } yield PushLog(page, logs)
+    } yield ActivityResult(page, logs)
 
-  override def getCompletedLastDay(chatId: Long): F[UserStatsResult] =
+  override def getCompletedLastDay(chatId: Long): F[CompletedLastDayResult] =
     for {
       _         <- Logger[F].debug(s"[$chatId] Counting completed last day")
       now       = OffsetDateTime.now()
       dayBefore = now.minus(1, ChronoUnit.DAYS)
       cnt       <- repository.countCompleted(chatId, dayBefore, now)
-    } yield PushCompletedLastDay(cnt)
+    } yield CompletedLastDayResult(cnt)
 
-  override def getCompletedLastWeek(chatId: Long): F[UserStatsResult] =
+  override def getCompletedLastWeek(chatId: Long): F[CompletedLastWeekResult] =
     for {
       _          <- Logger[F].debug(s"[$chatId] Counting completed last week")
       now        = OffsetDateTime.now()
       weekBefore = now.minus(1, ChronoUnit.WEEKS)
       cnt        <- repository.countCompleted(chatId, weekBefore, now)
-    } yield PushCompletedLastWeek(cnt)
+    } yield CompletedLastWeekResult(cnt)
 
-  override def getCompletedLastMonth(chatId: Long): F[UserStatsResult] =
+  override def getCompletedLastMonth(chatId: Long): F[CompletedLastMonthResult] =
     for {
       _                 <- Logger[F].debug(s"[$chatId] Counting completed last month")
       now               = OffsetDateTime.now()
       monthBeforeBefore = now.minus(1, ChronoUnit.MONTHS)
       cnt               <- repository.countCompleted(chatId, monthBeforeBefore, now)
-    } yield PushCompletedLastMonth(cnt)
+    } yield CompletedLastMonthResult(cnt)
 }
 
 case object StatisticInterpreter {

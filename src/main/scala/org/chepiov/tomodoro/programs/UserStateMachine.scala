@@ -30,6 +30,9 @@ case object UserStateMachine {
   def stats(chatId: Long, result: UserStatsResult, state: UserState): TSendMessage =
     statsResultMsg(chatId, result, state)
 
+  def stats(chatId: Long, messageId: Long, result: UserStatsResult): TEditMessage =
+    statsResultEditMsg(chatId, messageId, result)
+
   private def advance(chatId: Long, cmd: Command, s: UserState, timeUnit: TimeUnit): (UserState, Option[TSendMessage]) =
     (s, cmd, chatId, timeUnit) match {
       case invalidTime(r @ (_, _))                   => r

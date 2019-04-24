@@ -91,26 +91,49 @@ case object UserMessages {
 
   def statsResultMsg(chatId: Long, result: UserStatsResult, state: UserState): TSendMessage =
     result match {
-      case r: PushLog                => logsMsg(chatId, r)
-      case r: PushCompletedLastDay   => completedLastDayMsg(chatId, r, state)
-      case r: PushCompletedLastWeek  => completedLastWeekMsg(chatId, r, state)
-      case r: PushCompletedLastMonth => completedLastMonthMsg(chatId, r, state)
+      case r: ActivityResult           => logsMsg(chatId, r)
+      case r: CompletedLastDayResult   => completedLastDayMsg(chatId, r, state)
+      case r: CompletedLastWeekResult  => completedLastWeekMsg(chatId, r, state)
+      case r: CompletedLastMonthResult => completedLastMonthMsg(chatId, r, state)
     }
 
-  def logsMsg(chatId: Long, result: PushLog): TSendMessage =
+  def statsResultEditMsg(chatId: Long, messageId: Long, result: UserStatsResult): TEditMessage =
+    result match {
+      case r: ActivityResult           => logsEditMsg(chatId, messageId, r)
+      case r: CompletedLastDayResult   => completedLastDayEditMsg(chatId, messageId, r)
+      case r: CompletedLastWeekResult  => completedLastWeekEditMsg(chatId, messageId, r)
+      case r: CompletedLastMonthResult => completedLastMonthEditMsg(chatId, messageId, r)
+    }
+
+  def logsMsg(chatId: Long, result: ActivityResult): TSendMessage =
     TSendMessage(chatId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
 
-  def completedLastDayMsg(chatId: Long, result: PushCompletedLastDay, state: UserState): TSendMessage =
+  def completedLastDayMsg(chatId: Long, result: CompletedLastDayResult, state: UserState): TSendMessage =
     message(chatId, completedLastDayText(result.count), state)
 
-  def completedLastWeekMsg(chatId: Long, result: PushCompletedLastWeek, state: UserState): TSendMessage =
+  def completedLastWeekMsg(chatId: Long, result: CompletedLastWeekResult, state: UserState): TSendMessage =
     message(chatId, completedLastWeek(result.count), state)
 
-  def completedLastMonthMsg(chatId: Long, result: PushCompletedLastMonth, state: UserState): TSendMessage =
+  def completedLastMonthMsg(chatId: Long, result: CompletedLastMonthResult, state: UserState): TSendMessage =
     message(chatId, completedLastMonth(result.count), state)
+
+  def logsEditMsg(chatId: Long, messageId: Long, result: ActivityResult): TEditMessage =
+    TEditMessage(chatId, messageId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
+
+  def completedLastDayEditMsg(chatId: Long, messageId: Long, result: CompletedLastDayResult): TEditMessage =
+    editMessage(chatId, messageId, completedLastDayText(result.count))
+
+  def completedLastWeekEditMsg(chatId: Long, messageId: Long, result: CompletedLastWeekResult): TEditMessage =
+    editMessage(chatId, messageId, completedLastWeek(result.count))
+
+  def completedLastMonthEditMsg(chatId: Long, messageId: Long, result: CompletedLastMonthResult): TEditMessage =
+    editMessage(chatId, messageId, completedLastMonth(result.count))
 
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
+
+  private def editMessage(chatId: Long, messageId: Long, text: String): TEditMessage =
+    TEditMessage(chatId, messageId, text)
 }
 
 case object UserMessageData {

@@ -50,6 +50,15 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
       r        <- Logger[F].debug(s"answerCallbackQuery result status: ${response.status}")
     } yield r
 
+  override def editMessageText(message: TEditMessage): F[Unit] =
+    for {
+      request  <- marshal(message, "editMessageText")
+      _        <- Logger[F].debug(s"[${message.chatId}] editMessageText method call")
+      response <- getResponse(request)
+      _        <- checkResponse(response, "editMessageText")
+      r        <- Logger[F].debug(s"editMessageText result status: ${response.status}")
+    } yield r
+
   override def getMe: F[TUser] =
     for {
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
@@ -156,6 +165,9 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
 
   implicit val sendMessageFormat: RootJsonFormat[TSendMessage] =
     jsonFormat(TSendMessage, "chat_id", "text", "reply_markup", "parse_mode")
+
+  implicit val editMessageFormat: RootJsonFormat[TEditMessage] =
+    jsonFormat(TEditMessage, "chat_id", "message_id", "text", "reply_markup", "parse_mode")
 
   implicit val sendMessageToEntity: ToEntityMarshaller[TSendMessage] =
     Marshaller.withFixedContentType(MediaTypes.`application/json`) { a =>

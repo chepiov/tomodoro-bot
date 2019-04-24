@@ -37,7 +37,6 @@ class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repo
       cnt <- SQL.countCompleted(chatId, from, to).unique.transact(xa)
       _   <- Logger[F].debug(s"[$chatId] Found $cnt completed tomodoroes between $from and $to")
     } yield cnt
-
 }
 
 case object RepositoryInterpreter {
