@@ -252,7 +252,7 @@ case object UserMessages {
 
   private def logsText(logs: List[Log]): String =
     if (logs.nonEmpty)
-      logs.mkString("\n")
+      logs.map(_.log).mkString("\n")
     else "There is no activity"
 
   private val durationText: String        = "Say new *duration* (in minutes)"
