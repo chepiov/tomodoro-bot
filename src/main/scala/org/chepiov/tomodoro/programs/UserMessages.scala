@@ -14,6 +14,8 @@ import scala.concurrent.duration._
   * User chat messages
   */
 case object UserMessages {
+  import UserMessageKeyboards._
+  import UserMessageTexts._
 
   val stateSynonyms: Set[String]    = Set("/state", "state")
   val helpSynonyms: Set[String]     = Set("/help", "help", "/start")
@@ -23,58 +25,6 @@ case object UserMessages {
   val resetSynonyms: Set[String]    = Set("/reset", "reset")
   val skipSynonyms: Set[String]     = Set("/skip", "skip")
   val settingsSynonyms: Set[String] = Set("/settings", "settings")
-
-  sealed trait SettingsData extends EnumEntry {
-    def cmd(time: Long): ChangeSettingsCommand
-  }
-
-  object SettingsData extends Enum[SettingsData] {
-
-    override def values: immutable.IndexedSeq[SettingsData] = findValues
-
-    object SettingsDurationData extends SettingsData {
-      override def entryName: String                      = "settings_duration"
-      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingDuration(time)
-    }
-
-    object SettingsLongBreakData extends SettingsData {
-      override def entryName: String                      = "settings_long_break"
-      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingLongBreak(time)
-    }
-
-    object SettingsShortBreakData extends SettingsData {
-      override def entryName: String                      = "settings_short_break"
-      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingShortBreak(time)
-    }
-
-    object SettingsAmountData extends SettingsData {
-      override def entryName: String                      = "settings_amount"
-      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingAmount(time)
-    }
-  }
-
-  sealed trait StatsData extends EnumEntry
-
-  object StatsData extends Enum[StatsData] {
-
-    override def values: immutable.IndexedSeq[StatsData] = findValues
-
-    object StatsLogData extends StatsData {
-      override def entryName: String = "stats_log"
-    }
-
-    object StatsCountPerDayData extends StatsData {
-      override def entryName: String = "stats_count_per_day"
-    }
-
-    object StatsCountPerWeekData extends StatsData {
-      override def entryName: String = "stats_count_per_week"
-    }
-
-    object StatsCountPerMonthData extends StatsData {
-      override def entryName: String = "stats_count_per_month"
-    }
-  }
 
   def helpMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, helpText(state), state)
@@ -151,7 +101,66 @@ case object UserMessages {
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
 
-  private def helpText(state: UserState): String =
+}
+
+case object UserMessageData {
+
+  sealed trait SettingsData extends EnumEntry {
+    def cmd(time: Long): ChangeSettingsCommand
+  }
+
+  object SettingsData extends Enum[SettingsData] {
+
+    override def values: immutable.IndexedSeq[SettingsData] = findValues
+
+    object SettingsDurationData extends SettingsData {
+      override def entryName: String                      = "settings_duration"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingDuration(time)
+    }
+
+    object SettingsLongBreakData extends SettingsData {
+      override def entryName: String                      = "settings_long_break"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingLongBreak(time)
+    }
+
+    object SettingsShortBreakData extends SettingsData {
+      override def entryName: String                      = "settings_short_break"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingShortBreak(time)
+    }
+
+    object SettingsAmountData extends SettingsData {
+      override def entryName: String                      = "settings_amount"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingAmount(time)
+    }
+  }
+
+  sealed trait StatsData extends EnumEntry
+
+  object StatsData extends Enum[StatsData] {
+
+    override def values: immutable.IndexedSeq[StatsData] = findValues
+
+    object StatsLogData extends StatsData {
+      override def entryName: String = "stats_log"
+    }
+
+    object StatsCountPerDayData extends StatsData {
+      override def entryName: String = "stats_count_per_day"
+    }
+
+    object StatsCountPerWeekData extends StatsData {
+      override def entryName: String = "stats_count_per_week"
+    }
+
+    object StatsCountPerMonthData extends StatsData {
+      override def entryName: String = "stats_count_per_month"
+    }
+  }
+}
+
+private[programs] case object UserMessageTexts {
+
+  def helpText(state: UserState): String =
     s"""
        |*About pomodoro technique:* [Wikipedia](https://en.wikipedia.org/wiki/Pomodoro_Technique)
        |
@@ -168,7 +177,7 @@ case object UserMessages {
        |${stateText(state)}
     """.stripMargin
 
-  private def settingsText(settings: UserSettings): String =
+  def settingsText(settings: UserSettings): String =
     s"""
        |  *Tomodoro* duration: ${settings.duration} minutes
        |  *Short break* duration: ${settings.shortBreak} minutes
@@ -176,7 +185,7 @@ case object UserMessages {
        |  *Amount* of tomodoroes in cycle: ${settings.amount} tomodoroes
     """.stripMargin
 
-  private def stateText(state: UserState): String = {
+  def stateText(state: UserState): String = {
     state.status match {
       case WaitingWork(_, _) =>
         s"""
@@ -211,58 +220,72 @@ case object UserMessages {
     }
   }
 
-  private val alreadyWorkingText: String   = "You are already working, ignoring"
-  private val alreadyBreakingText: String  = "You are already taking a break, ignoring"
-  private val alreadySuspendedText: String = "You are already in pause, ignoring"
-  private val cantSkipText: String         = "Nothing to skip, ignoring"
+  val alreadyWorkingText: String   = "You are already working, ignoring"
+  val alreadyBreakingText: String  = "You are already taking a break, ignoring"
+  val alreadySuspendedText: String = "You are already in pause, ignoring"
+  val cantSkipText: String         = "Nothing to skip, ignoring"
 
-  private def workingText(afterPause: Boolean, remaining: Int, endTime: Long): String =
+  def workingText(afterPause: Boolean, remaining: Int, endTime: Long): String =
     s"""
        |${if (afterPause) "*Continuing*" else "*Starting*"}
        |Remaining tomodoroes in the current cycle: $remaining
        |Ends in ${remainingMinutes(endTime)}
     """.stripMargin
 
-  private def breakingText(remaining: Int, endTime: Long): String =
+  def breakingText(remaining: Int, endTime: Long): String =
     s"""You have a ${if (remaining == 0) "*long*" else "*short*"} break, ends in ${remainingMinutes(endTime)}"""
 
-  private def breakingAfterPauseText(remaining: Int, endTime: Long): String =
+  def breakingAfterPauseText(remaining: Int, endTime: Long): String =
     s"""*Continuing* a ${if (remaining == 0) "long" else "short"} break, ends in ${remainingMinutes(endTime)}"""
 
-  private def waitingWorkText(remaining: Int): String =
+  def waitingWorkText(remaining: Int): String =
     s"""*Break* finished, remaining tomodoroes in the current cycle: $remaining, say *start* or *continue* when you're ready"""
 
-  private def waitingBreakText(remaining: Int): String =
+  def waitingBreakText(remaining: Int): String =
     s"""*Tomodoro* finished, remaining  tomodoroes in the current cycle: $remaining, say *take a break* for taking a break"""
 
-  private def suspendedText(work: Boolean): String =
+  def suspendedText(work: Boolean): String =
     s"""${if (work) "*Tomodoro*" else "*Break*"} paused, say *continue* when you're ready"""
 
-  private def setSettingsText(settings: UserSettings): String =
+  def setSettingsText(settings: UserSettings): String =
     s"""
        |Your current settings: ${settingsText(settings)}
        |*Select type* of setting you wish to update:""".stripMargin
 
-  private val statsText: String = s"Select type of report:"
+  val statsText: String = s"Select type of report:"
 
-  private def resetText(state: UserState): String =
+  def resetText(state: UserState): String =
     s"""*Cycle reset*.
-       |${stateText(state)} 
+       |${stateText(state)}
        |""".stripMargin
 
-  private def logsText(logs: List[Log]): String =
+  private[programs] def logsText(logs: List[Log]): String =
     if (logs.nonEmpty)
       logs.map(_.log).mkString("\n")
     else "There is no activity"
 
-  private val durationText: String        = "Say new *duration* (in minutes)"
-  private val longBreakText: String       = "Say new *long break* duration (in minutes)"
-  private val shortBreakText: String      = "Say new *short break* duration (in minutes)"
-  private val amountText: String          = "Say new *amount* of tomodoroes in the cycle"
-  private val settingsUpdatedText: String = "Settings updated"
-  private val invalidValueText: String    = "Must be > 0"
+  val durationText: String        = "Say new *duration* (in minutes)"
+  val longBreakText: String       = "Say new *long break* duration (in minutes)"
+  val shortBreakText: String      = "Say new *short break* duration (in minutes)"
+  val amountText: String          = "Say new *amount* of tomodoroes in the cycle"
+  val settingsUpdatedText: String = "Settings updated"
+  val invalidValueText: String    = "Must be > 0"
 
-  private def keyboard(state: UserState): Option[TReplyKeyboardMarkup] =
+  def remainingMinutes(endTime: Long): FiniteDuration = {
+    val remaining = FiniteDuration(math.max(0, endTime - OffsetDateTime.now().toEpochSecond), SECONDS).toMinutes
+    Duration.create(remaining, MINUTES)
+  }
+
+  def minutesGone(suspendTime: Long): FiniteDuration = {
+    val suspended = FiniteDuration(OffsetDateTime.now().toEpochSecond - suspendTime, SECONDS).toMinutes
+    Duration.create(suspended, MINUTES)
+  }
+}
+
+private[programs] case object UserMessageKeyboards {
+  import UserMessageData._
+
+  def keyboard(state: UserState): Option[TReplyKeyboardMarkup] =
     TReplyKeyboardMarkup(
       List(
         upButtons(state),
@@ -271,7 +294,7 @@ case object UserMessages {
       )
     ).some
 
-  private val setSettingsKeyboard: Option[TInlineKeyboardMarkup] =
+  val setSettingsKeyboard: Option[TInlineKeyboardMarkup] =
     TInlineKeyboardMarkup(
       List(
         List(
@@ -285,7 +308,7 @@ case object UserMessages {
       )
     ).some
 
-  private val statsKeyboard: Option[TInlineKeyboardMarkup] =
+  val statsKeyboard: Option[TInlineKeyboardMarkup] =
     TInlineKeyboardMarkup(
       List(
         List(
@@ -299,7 +322,7 @@ case object UserMessages {
       )
     ).some
 
-  private def logsKeyboard(page: Int, empty: Boolean): Option[TInlineKeyboardMarkup] =
+  def logsKeyboard(page: Int, empty: Boolean): Option[TInlineKeyboardMarkup] =
     (page, empty) match {
       case _ if page > 0 && !empty =>
         TInlineKeyboardMarkup(
@@ -348,14 +371,4 @@ case object UserMessages {
 
   private val downButtons: List[TKeyboardButton] =
     List(TKeyboardButton("state"), TKeyboardButton("help"))
-
-  private def remainingMinutes(endTime: Long): FiniteDuration = {
-    val remaining = FiniteDuration(math.max(0, endTime - OffsetDateTime.now().toEpochSecond), SECONDS).toMinutes
-    Duration.create(remaining, MINUTES)
-  }
-
-  private def minutesGone(suspendTime: Long): FiniteDuration = {
-    val suspended = FiniteDuration(OffsetDateTime.now().toEpochSecond - suspendTime, SECONDS).toMinutes
-    Duration.create(suspended, MINUTES)
-  }
 }

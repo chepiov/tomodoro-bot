@@ -12,6 +12,7 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Telegram._
 import org.chepiov.tomodoro.algebras.User.{apply => _, _}
 import org.chepiov.tomodoro.algebras.{Statistic, Telegram, Tomodoro, Users}
+import org.chepiov.tomodoro.programs.UserMessageData._
 import org.chepiov.tomodoro.programs.UserMessages._
 
 import scala.util.Try
