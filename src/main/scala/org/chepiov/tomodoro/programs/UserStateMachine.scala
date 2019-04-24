@@ -28,7 +28,7 @@ case object UserStateMachine {
     }
 
   def stats(chatId: Long, result: UserStatsResult): TSendMessage =
-    TSendMessage(chatId, s"Not yet implemented, sorry, descriptor: $result")
+    statsResultMsg(chatId, result)
 
   private def advance(chatId: Long, cmd: Command, s: UserState, timeUnit: TimeUnit): (UserState, Option[TSendMessage]) =
     (s, cmd, chatId, timeUnit) match {

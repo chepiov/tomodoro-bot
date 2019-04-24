@@ -14,6 +14,8 @@ import org.chepiov.tomodoro.algebras.User.{apply => _, _}
 import org.chepiov.tomodoro.algebras.{Statistic, Telegram, Tomodoro, Users}
 import org.chepiov.tomodoro.programs.UserMessages._
 
+import scala.util.Try
+
 class TomodoroInterpreter[F[_]: Logger: Monad](
     users: Users[F],
     statistic: Statistic[F],
@@ -51,6 +53,14 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
           _     <- user.stats(stats)
           r     <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
+      case statsLogCallbackQuery(chatId, callbackId, page) =>
+        for {
+          _     <- Logger[F].debug(s"[$chatId] Received log page callback query, page: $page")
+          stats <- getLog(chatId, page)
+          user  <- users.getOrCreateUser(chatId)
+          _     <- user.stats(stats)
+          r     <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
+        } yield r
       case _ => for (r <- Logger[F].warn(s"Unknown update: $update")) yield r
     }
   }
@@ -74,32 +84,34 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
       r       <- user.advance(command)
     } yield r
 
-  private def getStats(chatId: Long, statsType: StatsType): F[UserStatsResult] =
-    statsType match {
-      case Log =>
+  private def getLog(chatId: Long, page: Int): F[UserStatsResult] =
+    for {
+      _   <- Logger[F].debug(s"[$chatId] Getting log statistic")
+      log <- statistic.getLog(chatId, page)
+    } yield log
+
+  private def getStats(chatId: Long, statsData: StatsData): F[UserStatsResult] =
+    statsData match {
+      case StatsData.StatsLogData =>
         for {
           _   <- Logger[F].debug(s"[$chatId] Getting log statistic")
-          log <- statistic.getLog(chatId, 0, 0)
-          _   <- Logger[F].debug(s"[$chatId] Log: $log")
-        } yield PushLog
-      case LastDay =>
+          log <- statistic.getLog(chatId, 0)
+        } yield log
+      case StatsData.StatsCountPerDayData =>
         for {
           _         <- Logger[F].debug(s"[$chatId] Getting completed last day statistic")
           completed <- statistic.getCompletedLastDay(chatId)
-          _         <- Logger[F].debug(s"[$chatId] Completed last day: $completed")
-        } yield PushCompletedLastDay
-      case LastWeek =>
+        } yield completed
+      case StatsData.StatsCountPerWeekData =>
         for {
           _         <- Logger[F].debug(s"[$chatId] Getting completed last week statistic")
           completed <- statistic.getCompletedLastWeek(chatId)
-          _         <- Logger[F].debug(s"[$chatId] Completed last day: $completed")
-        } yield PushCompletedLastWeek
-      case LastMonth =>
+        } yield completed
+      case StatsData.StatsCountPerMonthData =>
         for {
           _         <- Logger[F].debug(s"[$chatId] Getting completed last month statistic")
           completed <- statistic.getCompletedLastMonth(chatId)
-          _         <- Logger[F].debug(s"[$chatId] Completed last day: $completed")
-        } yield PushCompletedLastMonth
+        } yield completed
     }
 }
 
@@ -146,36 +158,26 @@ case object TomodoroInterpreter {
   private object settingsCallbackQuery {
     def unapply(update: TUpdate): Option[(Long, String, UserCommand)] = update match {
       case TUpdate(_, None, Some(TCallbackQuery(callbackId, _, Some(TMessage(_, TChat(chatId), _)), Some(data)))) =>
-        val cmd = data match {
-          case SettingsDurationData   => AwaitChangingDuration(now).some
-          case SettingsLongBreakData  => AwaitChangingLongBreak(now).some
-          case SettingsShortBreakData => AwaitChangingShortBreak(now).some
-          case SettingsAmountData     => AwaitChangingAmount(now).some
-          case _                      => none[UserCommand]
-        }
-        cmd.map(c => (chatId, callbackId, c))
+        SettingsData.withNameOption(data).map(d => (chatId, callbackId, d.cmd(now)))
       case _ => none
     }
   }
 
   private object statsCallbackQuery {
-    def unapply(update: TUpdate): Option[(Long, String, StatsType)] = update match {
+    def unapply(update: TUpdate): Option[(Long, String, StatsData)] = update match {
       case TUpdate(_, None, Some(TCallbackQuery(callbackId, _, Some(TMessage(_, TChat(chatId), _)), Some(data)))) =>
-        val statsType = data match {
-          case StatsLogData           => Log.some
-          case StatsCountPerDayData   => LastDay.some
-          case StatsCountPerWeekData  => LastWeek.some
-          case StatsCountPerMonthData => LastMonth.some
-          case _                      => none[StatsType]
-        }
-        statsType.map(c => (chatId, callbackId, c))
+        StatsData.withNameOption(data).map(d => (chatId, callbackId, d))
       case _ => none
     }
   }
 
-  sealed private trait StatsType extends Product with Serializable
-  private case object Log        extends StatsType
-  private case object LastDay    extends StatsType
-  private case object LastWeek   extends StatsType
-  private case object LastMonth  extends StatsType
+  private object statsLogCallbackQuery {
+    def unapply(update: TUpdate): Option[(Long, String, Int)] = update match {
+      case TUpdate(_, None, Some(TCallbackQuery(callbackId, _, Some(TMessage(_, TChat(chatId), _)), Some(data))))
+          if data.startsWith(StatsData.StatsLogData.entryName) =>
+        Try(data.replaceFirst(s"${StatsData.StatsLogData.entryName}:", "").toInt).toOption
+          .map(p => (chatId, callbackId, p))
+      case _ => none
+    }
+  }
 }

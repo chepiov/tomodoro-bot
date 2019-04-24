@@ -28,8 +28,8 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
 
   private val uri = s"${config.scheme}://${config.host}/bot${config.token}"
 
-  implicit val mat: Materializer    = ActorMaterializer()
-  implicit val ec: ExecutionContext = actorSystem.dispatcher
+  implicit private val mat: Materializer    = ActorMaterializer()
+  implicit private val ec: ExecutionContext = actorSystem.dispatcher
 
   override def sendMessage(message: TSendMessage): F[Unit] =
     for {
@@ -72,7 +72,8 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
     if (response.status != StatusCodes.OK)
       for {
         _ <- Logger[F].error(s"Error during $method, status code: ${response.status}")
-        _ <- discard(response)
+        e <- unmarshalToString(response)
+        _ <- Logger[F].error(s"Error: $e")
         r <- error(response, method)
       } yield r
     else Async[F].unit
@@ -96,6 +97,14 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
   private def unmarshal[A: RootJsonFormat](response: HttpResponse): F[A] =
     Async[F].async[A] { k =>
       Unmarshal(response.entity).to[A].onComplete {
+        case Success(r) => k(Right(r))
+        case Failure(e) => k(Left(e))
+      }
+    }
+
+  private def unmarshalToString(response: HttpResponse): F[String] =
+    Async[F].async[String] { k =>
+      Unmarshal(response.entity).to[String].onComplete {
         case Success(r) => k(Right(r))
         case Failure(e) => k(Left(e))
       }

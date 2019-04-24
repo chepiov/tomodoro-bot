@@ -33,8 +33,8 @@ class UserStatistic[F[_]: ApplicativeError[?[_], Throwable]](repository: Reposit
     }
   }
 
-  private def saveLog(stat: StatDescriptor): F[Try[Unit]] = {
-    val result = repository.addLog(stat.chatId, stat.time, stat.descriptor, stat.log)
+  private def saveLog(log: Log): F[Try[Unit]] = {
+    val result = repository.addLog(log)
     result *> Applicative[F].pure(Try(())).handleErrorWith { e =>
       Applicative[F].pure(Failure(e))
     }
@@ -46,111 +46,104 @@ case object UserStatistic {
 
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a XXX")
 
-  final private[hooks] case class StatDescriptor(
-      chatId: Long,
-      time: OffsetDateTime,
-      descriptor: String,
-      log: String
-  )
-
   case object tomodoroStarted {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, Working(remaining, startTime, _), _), _: Continue) =>
         val time = at(startTime)
         val log  = TomodoroStarted.log.format(formatter.format(time), remaining)
-        StatDescriptor(chatId, time, TomodoroStarted.entryName, log).some
+        Log(chatId, time, TomodoroStarted.entryName, log).some
       case _ => none
     }
   }
 
   case object tomodoroFinished {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(settings, WaitingBreak(remaining, startTime), _), _: Finish)
           if remaining == settings.amount =>
         val time = at(startTime)
         val log  = CycleFinished.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, CycleFinished.entryName, log).some
+        Log(chatId, time, CycleFinished.entryName, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingBreak(remaining, startTime), _), _: Finish) =>
         val time = at(startTime)
         val log  = TomodoroFinished.log.format(formatter.format(time), remaining)
-        StatDescriptor(chatId, time, TomodoroFinished.entryName, log).some
+        Log(chatId, time, TomodoroFinished.entryName, log).some
       case _ => none
     }
   }
 
   case object breakStarted {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, Breaking(remaining, startTime, _), _), _: Continue)
           if remaining == 0 =>
         val time = at(startTime)
         val log  = LongBreakStarted.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, LongBreakStarted.entryName, log).some
+        Log(chatId, time, LongBreakStarted.entryName, log).some
       case StateChangedEvent(chatId, UserState(_, Breaking(_, startTime, _), _), _: Continue) =>
         val time = at(startTime)
         val log  = ShortBreakStarted.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, ShortBreakStarted.entryName, log).some
+        Log(chatId, time, ShortBreakStarted.entryName, log).some
       case _ => none
     }
   }
 
   case object breakFinished {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, WaitingWork(remaining, startTime), _), _: Finish) if remaining == 0 =>
         val time = at(startTime)
         val log  = ShortBreakFinished.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, ShortBreakFinished.entryName, log).some
+        Log(chatId, time, ShortBreakFinished.entryName, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingWork(_, startTime), _), _: Finish) =>
         val time = at(startTime)
         val log  = LongBreakFinished.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, LongBreakFinished.entryName, log).some
+        Log(chatId, time, LongBreakFinished.entryName, log).some
       case _ => none
     }
   }
 
   case object paused {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, WorkSuspended(_, _, suspendTime), _), _: Suspend) =>
         val time = at(suspendTime)
         val log  = TomodoroPaused.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, TomodoroPaused.entryName, log).some
+        Log(chatId, time, TomodoroPaused.entryName, log).some
       case StateChangedEvent(chatId, UserState(_, BreakSuspended(_, _, suspendTime), _), _: Suspend) =>
         val time = at(suspendTime)
         val log  = BreakPaused.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, BreakPaused.entryName, log).some
+        Log(chatId, time, BreakPaused.entryName, log).some
       case _ => none
     }
   }
 
   case object skipped {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, WaitingBreak(_, startTime), _), _: Skip) =>
         val time = at(startTime)
         val log  = TomodoroSkipped.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, TomodoroSkipped.entryName, log).some
+        Log(chatId, time, TomodoroSkipped.entryName, log).some
       case StateChangedEvent(chatId, UserState(_, WaitingWork(_, startTime), _), _: Skip) =>
         val time = at(startTime)
         val log  = BreakSkipped.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, BreakSkipped.entryName, log).some
+        Log(chatId, time, BreakSkipped.entryName, log).some
       case _ => none
     }
   }
 
   case object reset {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, _, Reset(startTime)) =>
         val time = at(startTime)
         val log  = CycleReset.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, CycleReset.entryName, log).some
+        Log(chatId, time, CycleReset.entryName, log).some
       case _ => none
     }
   }
 
   case object settingsUpdated {
-    def unapply(event: StateChangedEvent): Option[StatDescriptor] = event match {
+    def unapply(event: StateChangedEvent): Option[Log] = event match {
       case StateChangedEvent(chatId, UserState(_, _, _), SetSettings(startTime)) =>
         val time = at(startTime)
         val log  = SettingsUpdated.log.format(formatter.format(time))
-        StatDescriptor(chatId, time, SettingsUpdated.entryName, log).some
+        Log(chatId, time, SettingsUpdated.entryName, log).some
       case _ => none
     }
   }

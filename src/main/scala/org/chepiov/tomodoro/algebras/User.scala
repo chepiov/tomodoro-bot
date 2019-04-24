@@ -1,5 +1,7 @@
 package org.chepiov.tomodoro.algebras
 
+import java.time.OffsetDateTime
+
 import simulacrum.typeclass
 
 /**
@@ -216,9 +218,15 @@ case object User {
   /**
     * User statistic results.
     */
+  final case class Log(
+    chatId: Long,
+    time: OffsetDateTime,
+    descriptor: String,
+    log: String
+  )
   sealed trait UserStatsResult extends Product with Serializable
 
-  case object PushLog extends UserStatsResult
+  final case class PushLog(page: Int, logs: List[Log]) extends UserStatsResult
 
   case object PushCompletedLastDay extends UserStatsResult
 

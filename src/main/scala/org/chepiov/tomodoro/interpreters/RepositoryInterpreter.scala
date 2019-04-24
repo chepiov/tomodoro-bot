@@ -3,29 +3,31 @@ package org.chepiov.tomodoro.interpreters
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 
-import cats.Applicative
 import cats.effect.{Async, ContextShift}
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import doobie._
 import doobie.implicits._
 import doobie.postgres.implicits._
-import doobie.util.transactor.Transactor.Aux
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Repository
+import org.chepiov.tomodoro.algebras.User.Log
 
-class RepositoryInterpreter[F[_]: Logger: Async: ContextShift](xa: Aux[F, Unit]) extends Repository[F] {
+class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
 
-  override def findChatActivity(chatId: Long, limit: Int, offset: Int): F[Seq[(Long, String)]] =
-    Seq((1L, "")).pure[F]
-
-  override def addLog(chatId: Long, time: OffsetDateTime, descriptor: String, log: String): F[Unit] =
+  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[Log]] =
     for {
-      id <- SQL.addLog(chatId, time, descriptor, log).withUniqueGeneratedKeys[UUID]("id").transact(xa)
-      r  <- Logger[F].debug(s"[$chatId] Log added with id: $id")
+      logs <- SQL.findLogs(chatId, offset, limit).to[List].transact(xa)
+      _    <- Logger[F].debug(s"[$chatId] Found logs, limit: $limit, offset: $offset, size: ${logs.size}")
+    } yield logs
+
+  override def addLog(log: Log): F[Unit] =
+    for {
+      id <- SQL.addLog(log).withUniqueGeneratedKeys[UUID]("id").transact(xa)
+      r  <- Logger[F].debug(s"[${log.chatId}] Log added with id: $id")
     } yield r
 
 }
@@ -57,9 +59,19 @@ case object RepositorySQL {
   implicit val odtMeta: Meta[OffsetDateTime] =
     Meta[Instant].timap(i => OffsetDateTime.ofInstant(i, ZoneOffset.UTC))(odt => odt.toInstant)
 
-  def addLog(chatId: Long, time: OffsetDateTime, descriptor: String, log: String): Update0 =
+  def addLog(log: Log): Update0 =
     sql"""
          INSERT into user_log(chat_id, time, descriptor, log)
-         VALUES($chatId, $time, $descriptor, $log)
+         VALUES(${log.chatId}, ${log.time}, ${log.descriptor}, ${log.log})
        """.update
+
+  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[Log] =
+    sql"""
+         SELECT chat_id, time, descriptor, log
+         FROM user_log
+         WHERE chat_id = $chatId
+         ORDER BY time DESC
+         LIMIT $limit
+         OFFSET $offset
+       """.query[Log]
 }

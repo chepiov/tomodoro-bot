@@ -39,7 +39,7 @@ object Main extends IOApp {
       dbConfig                       <- loadConfigF[IO, DbConfig]("database")
       repository                     <- RepositoryInterpreter[IO](dbConfig)
       users                          <- UsersInterpreter[IO](telegram, repository, system)
-      statistic                      <- StatisticInterpreter[IO](system, repository)
+      statistic                      <- StatisticInterpreter[IO](repository)
       tomodoro                       <- TomodoroInterpreter[IO](users, statistic, telegram)
       httpConfig                     <- loadConfigF[IO, HttpConfig]("http")
       logger                         <- Slf4jLogger.create[IO]

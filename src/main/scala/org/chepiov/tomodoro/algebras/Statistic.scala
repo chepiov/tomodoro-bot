@@ -1,13 +1,15 @@
 package org.chepiov.tomodoro.algebras
 
+import org.chepiov.tomodoro.algebras.User.UserStatsResult
+
 /**
   * Represents statistic service of Tomodoro bot.
   *
   * @tparam F effect
   */
 trait Statistic[F[_]] {
-  def getLog(chatId: Long, offset: Int, limit: Int): F[Seq[(Long, String)]]
-  def getCompletedLastDay(chatId: Long): F[Int]
-  def getCompletedLastWeek(chatId: Long): F[Int]
-  def getCompletedLastMonth(chatId: Long): F[Int]
+  def getLog(chatId: Long, page: Int): F[UserStatsResult]
+  def getCompletedLastDay(chatId: Long): F[UserStatsResult]
+  def getCompletedLastWeek(chatId: Long): F[UserStatsResult]
+  def getCompletedLastMonth(chatId: Long): F[UserStatsResult]
 }

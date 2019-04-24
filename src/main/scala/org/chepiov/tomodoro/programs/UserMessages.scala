@@ -3,15 +3,17 @@ package org.chepiov.tomodoro.programs
 import java.time.OffsetDateTime
 
 import cats.syntax.option._
+import enumeratum.{EnumEntry, _}
 import org.chepiov.tomodoro.algebras.Telegram._
 import org.chepiov.tomodoro.algebras.User._
 
+import scala.collection.immutable
 import scala.concurrent.duration._
 
 /**
   * User chat messages
   */
-object UserMessages {
+case object UserMessages {
 
   val stateSynonyms: Set[String]    = Set("/state", "state")
   val helpSynonyms: Set[String]     = Set("/help", "help", "/start")
@@ -22,15 +24,57 @@ object UserMessages {
   val skipSynonyms: Set[String]     = Set("/skip", "skip")
   val settingsSynonyms: Set[String] = Set("/settings", "settings")
 
-  val SettingsDurationData   = "settings_duration"
-  val SettingsLongBreakData  = "settings_long_break"
-  val SettingsShortBreakData = "settings_short_break"
-  val SettingsAmountData     = "settings_amount"
+  sealed trait SettingsData extends EnumEntry {
+    def cmd(time: Long): ChangeSettingsCommand
+  }
 
-  val StatsLogData           = "stats_log"
-  val StatsCountPerDayData   = "stats_count_per_day"
-  val StatsCountPerWeekData  = "stats_count_per_week"
-  val StatsCountPerMonthData = "stats_count_per_month"
+  object SettingsData extends Enum[SettingsData] {
+
+    override def values: immutable.IndexedSeq[SettingsData] = findValues
+
+    object SettingsDurationData extends SettingsData {
+      override def entryName: String                      = "settings_duration"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingDuration(time)
+    }
+
+    object SettingsLongBreakData extends SettingsData {
+      override def entryName: String                      = "settings_long_break"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingLongBreak(time)
+    }
+
+    object SettingsShortBreakData extends SettingsData {
+      override def entryName: String                      = "settings_short_break"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingShortBreak(time)
+    }
+
+    object SettingsAmountData extends SettingsData {
+      override def entryName: String                      = "settings_amount"
+      override def cmd(time: Long): ChangeSettingsCommand = AwaitChangingAmount(time)
+    }
+  }
+
+  sealed trait StatsData extends EnumEntry
+
+  object StatsData extends Enum[StatsData] {
+
+    override def values: immutable.IndexedSeq[StatsData] = findValues
+
+    object StatsLogData extends StatsData {
+      override def entryName: String = "stats_log"
+    }
+
+    object StatsCountPerDayData extends StatsData {
+      override def entryName: String = "stats_count_per_day"
+    }
+
+    object StatsCountPerWeekData extends StatsData {
+      override def entryName: String = "stats_count_per_week"
+    }
+
+    object StatsCountPerMonthData extends StatsData {
+      override def entryName: String = "stats_count_per_month"
+    }
+  }
 
   def helpMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, helpText(state), state)
@@ -95,6 +139,15 @@ object UserMessages {
   def invalidValueMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, invalidValueText, state)
 
+  def statsResultMsg(chatId: Long, result: UserStatsResult): TSendMessage =
+    result match {
+      case r: PushLog => logsMsg(chatId, r)
+      case _          => TSendMessage(chatId, s"Not yet implemented, sorry, descriptor: $result")
+    }
+
+  def logsMsg(chatId: Long, result: PushLog): TSendMessage =
+    TSendMessage(chatId, logsText(result.logs), logsKeyboard(result.page, result.logs.isEmpty))
+
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
 
@@ -117,7 +170,7 @@ object UserMessages {
 
   private def settingsText(settings: UserSettings): String =
     s"""
-       |  Tomodoro *duration*: ${settings.duration} minutes
+       |  *Tomodoro* duration: ${settings.duration} minutes
        |  *Short break* duration: ${settings.shortBreak} minutes
        |  *Long break* duration: ${settings.longBreak} minutes
        |  *Amount* of tomodoroes in cycle: ${settings.amount} tomodoroes
@@ -186,14 +239,21 @@ object UserMessages {
     s"""${if (work) "*Tomodoro*" else "*Break*"} paused, say *continue* when you're ready"""
 
   private def setSettingsText(settings: UserSettings): String =
-    s"${settingsText(settings)} Select type of setting you wish to update"
+    s"""
+       |Your current settings: ${settingsText(settings)}
+       |*Select type* of setting you wish to update:""".stripMargin
 
-  private val statsText: String = s"Select type of report"
+  private val statsText: String = s"Select type of report:"
 
   private def resetText(state: UserState): String =
     s"""*Cycle reset*.
        |${stateText(state)} 
        |""".stripMargin
+
+  private def logsText(logs: List[Log]): String =
+    if (logs.nonEmpty)
+      logs.mkString("\n")
+    else "There is no activity"
 
   private val durationText: String        = "Say new *duration* (in minutes)"
   private val longBreakText: String       = "Say new *long break* duration (in minutes)"
@@ -215,12 +275,12 @@ object UserMessages {
     TInlineKeyboardMarkup(
       List(
         List(
-          TInlineKeyboardButton("Duration", SettingsDurationData),
-          TInlineKeyboardButton("Long break", SettingsLongBreakData)
+          TInlineKeyboardButton("Duration", SettingsData.SettingsDurationData.entryName),
+          TInlineKeyboardButton("Long break", SettingsData.SettingsLongBreakData.entryName)
         ),
         List(
-          TInlineKeyboardButton("Short break", SettingsShortBreakData),
-          TInlineKeyboardButton("Amount", SettingsAmountData)
+          TInlineKeyboardButton("Short break", SettingsData.SettingsShortBreakData.entryName),
+          TInlineKeyboardButton("Amount", SettingsData.SettingsAmountData.entryName)
         )
       )
     ).some
@@ -229,15 +289,45 @@ object UserMessages {
     TInlineKeyboardMarkup(
       List(
         List(
-          TInlineKeyboardButton("Activity log", StatsLogData),
-          TInlineKeyboardButton("Last day completed", StatsCountPerDayData)
+          TInlineKeyboardButton("Activity log", StatsData.StatsLogData.entryName),
+          TInlineKeyboardButton("Last day completed", StatsData.StatsCountPerDayData.entryName)
         ),
         List(
-          TInlineKeyboardButton("Last week completed", StatsCountPerWeekData),
-          TInlineKeyboardButton("Last month completed", StatsCountPerMonthData)
+          TInlineKeyboardButton("Last week completed", StatsData.StatsCountPerWeekData.entryName),
+          TInlineKeyboardButton("Last month completed", StatsData.StatsCountPerMonthData.entryName)
         )
       )
     ).some
+
+  private def logsKeyboard(page: Int, empty: Boolean): Option[TInlineKeyboardMarkup] =
+    (page, empty) match {
+      case _ if page > 0 && !empty =>
+        TInlineKeyboardMarkup(
+          List(
+            List(
+              TInlineKeyboardButton("<<", s"${StatsData.StatsLogData.entryName}:${page - 1}"),
+              TInlineKeyboardButton(">>", s"${StatsData.StatsLogData.entryName}:${page + 1}")
+            )
+          )
+        ).some
+      case _ if page == 0 && !empty =>
+        TInlineKeyboardMarkup(
+          List(
+            List(
+              TInlineKeyboardButton(">>", s"${StatsData.StatsLogData.entryName}:${page + 1}")
+            )
+          )
+        ).some
+      case _ if page > 0 && empty =>
+        TInlineKeyboardMarkup(
+          List(
+            List(
+              TInlineKeyboardButton("<<", s"${StatsData.StatsLogData.entryName}:${page - 1}")
+            )
+          )
+        ).some
+      case _ => none
+    }
 
   private def upButtons(state: UserState): List[TKeyboardButton] =
     state.status match {

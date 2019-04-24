@@ -1,8 +1,7 @@
 package org.chepiov.tomodoro.actors
 
 import akka.persistence.journal.{Tagged, WriteEventAdapter}
-import org.chepiov.tomodoro.actors.UserActor.MessageSentEvent
-import org.chepiov.tomodoro.actors.UserActor.MessageConfirmedEvent
+import org.chepiov.tomodoro.actors.UserActor.{MessageConfirmedEvent, MessageSentEvent}
 
 class UserEventAdapter extends WriteEventAdapter {
 

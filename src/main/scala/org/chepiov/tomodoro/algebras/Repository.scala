@@ -1,6 +1,6 @@
 package org.chepiov.tomodoro.algebras
 
-import java.time.OffsetDateTime
+import org.chepiov.tomodoro.algebras.User.Log
 
 /**
   * Represents repository of Tomodoro bot data.
@@ -8,6 +8,7 @@ import java.time.OffsetDateTime
   * @tparam F effect
   */
 trait Repository[F[_]] {
-  def findChatActivity(chatId: Long, limit: Int, offset: Int): F[Seq[(Long, String)]]
-  def addLog(chatId: Long, time: OffsetDateTime, descriptor: String, log: String): F[Unit]
+
+  def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[Log]]
+  def addLog(log: Log): F[Unit]
 }

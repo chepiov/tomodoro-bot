@@ -35,9 +35,9 @@ class UserActor(
     case QueryMsg(query, ack) =>
       log.debug(s"[$chatId] Query $query received")
       persist(MessageSentEvent(UserStateMachine.query(chatId, query, state)))(deliverAfterPersist(ack))
-    case StatsMsg(query, ack) =>
-      log.debug(s"[$chatId] Stats push $query received")
-      persist(MessageSentEvent(UserStateMachine.stats(chatId, query)))(deliverAfterPersist(ack))
+    case StatsMsg(result, ack) =>
+      log.debug(s"[$chatId] Stats push $result received")
+      persist(MessageSentEvent(UserStateMachine.stats(chatId, result)))(deliverAfterPersist(ack))
     case ChatMsgConfirm(deliveryId) =>
       persist(MessageConfirmedEvent(deliveryId)) { evt =>
         confirmDelivery(evt.deliveryId)
