@@ -11,7 +11,28 @@
   "env": {
     "TELEGRAM_TOKEN": {
       "description": "A secret token for Telegram API.",
-      "generator": "secret"
+      "generator": "secret",
+      "required": true
+    },
+    "MONGODB_URI": {
+      "description": "Mongodb URI (You can see it in mongolab addon).",
+      "value": "mongodb://",
+      "required": true
+    },
+    "DATABASE_URI": {
+      "description": "Postgres URI (You can see it in heroku-postgresql addon).",
+      "value": "jdbc:postgresql://",
+      "required": true
+    },
+    "DATABASE_USER": {
+      "description": "Postgres user (You can see it in heroku-postgresql addon).",
+      "value": "",
+      "required": true
+    },
+    "DATABASE_PASSWORD": {
+      "description": "Postgres password (You can see it in heroku-postgresql addon).",
+      "value": "",
+      "required": true
     },
     "AKKA_LOGLEVEL": {
       "description": "The logging level for akka actors.",
