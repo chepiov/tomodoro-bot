@@ -8,15 +8,22 @@ import akka.stream.scaladsl.Sink
 import akka.stream.{ActorMaterializer, Materializer}
 import cats.effect.Effect
 import cats.effect.syntax.effect._
-import org.chepiov.tomodoro.actors.UserActor.StateChangedEvent
+import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 
 import scala.util.{Failure, Success, Try}
 
-class UserStatActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]])
-    extends PersistentActor with ActorLogging {
-  import UserStatActor._
+/**
+  * Represents user activity recorder.
+  *
+  * @param chatId   user chat id
+  * @param consumer consumer of user activity stream
+  */
+class UserActivityActor[F[_] : Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]])
+  extends PersistentActor with ActorLogging {
 
-  override def persistenceId = s"user-stat-$chatId"
+  import UserActivityActor._
+
+  override def persistenceId = s"user-activity-$chatId"
 
   private val statJournal: ScalaDslMongoReadJournal =
     PersistenceQuery(context.system).readJournalFor[ScalaDslMongoReadJournal](MongoReadJournal.Identifier)
@@ -24,7 +31,7 @@ class UserStatActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F
   implicit val mat: Materializer = ActorMaterializer()
 
   override def receiveRecover: Receive = {
-    case o: Long                   => context.become(working(o))
+    case o: Long => context.become(working(o))
     case SnapshotOffer(_, o: Long) => context.become(working(o))
     case RecoveryCompleted =>
       log.debug(s"[$chatId] Recovering completed")
@@ -69,14 +76,19 @@ class UserStatActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F
   }
 }
 
-case object UserStatActor {
+case object UserActivityActor {
 
-  def props[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]]): Props =
-    Props(new UserStatActor[F](chatId, consumer))
+  def props[F[_] : Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]]): Props =
+    Props(new UserActivityActor[F](chatId, consumer))
 
   private val InitCmd = "INIT"
+
   private case object Ack
+
   private case class StreamInitialized(sequenceNr: Long)
+
   private case object StreamCompleted
+
   private case class StreamFailure(ex: Throwable)
+
 }

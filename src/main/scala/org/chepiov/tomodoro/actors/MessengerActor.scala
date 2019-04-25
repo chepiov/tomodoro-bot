@@ -11,10 +11,15 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class UserChatActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]]) extends Actor with ActorLogging {
+/**
+  * Represents messenger for user chat.
+  *
+  * @param chat messages sender
+  */
+class MessengerActor[F[_] : Effect](chat: TSendMessage => F[Try[Unit]]) extends Actor with ActorLogging {
 
   implicit val ec: ExecutionContext = context.dispatcher
-  implicit val timeout: Timeout     = 5.seconds
+  implicit val timeout: Timeout = 5.seconds
 
   override def receive: Receive = {
     case a: ChatMsg =>
@@ -32,7 +37,7 @@ class UserChatActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]]) extends Ac
   }
 }
 
-case object UserChatActor {
-  def props[F[_]: Effect](chat: TSendMessage => F[Try[Unit]]): Props =
-    Props(new UserChatActor(chat))
+case object MessengerActor {
+  def props[F[_] : Effect](chat: TSendMessage => F[Try[Unit]]): Props =
+    Props(new MessengerActor(chat))
 }

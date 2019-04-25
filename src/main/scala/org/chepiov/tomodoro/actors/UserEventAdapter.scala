@@ -3,6 +3,9 @@ package org.chepiov.tomodoro.actors
 import akka.persistence.journal.{Tagged, WriteEventAdapter}
 import org.chepiov.tomodoro.actors.UserActor.{MessageConfirmedEvent, MessageSentEvent}
 
+/**
+  * Tagged adapter of user messages.
+  */
 class UserEventAdapter extends WriteEventAdapter {
 
   override def toJournal(event: Any): Any =

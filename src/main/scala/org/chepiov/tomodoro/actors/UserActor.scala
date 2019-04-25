@@ -8,18 +8,28 @@ import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras.Users.defaultUserSettings
+import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 import org.chepiov.tomodoro.programs.UserStateMachine
 
 import scala.concurrent.duration._
 import scala.math.max
 
+/**
+  * Represents user.
+  *
+  * @param chatId          related user chat id
+  * @param messenger   user messenger actor
+  * @param timeUnit        time unit of users scheduling
+  * @param defaultSettings settings for newly created user
+  */
 class UserActor(
-    chatId: Long,
-    userChat: ActorSelection,
-    timeUnit: TimeUnit,
-    defaultSettings: UserSettings,
-    snapShotInterval: Int
+  chatId: Long,
+  messenger: ActorSelection,
+  timeUnit: TimeUnit,
+  defaultSettings: UserSettings,
+  snapShotInterval: Int
 ) extends Timers with PersistentActor with AtLeastOnceDelivery with ActorLogging {
+
   import UserActor._
 
   //noinspection ActorMutableStateInspection
@@ -71,14 +81,14 @@ class UserActor(
   private def deliverMsg(ack: () => Unit = () => ())(evt: MessageSentEvent): Unit = {
     log.debug(s"[$chatId] New message event persisted")
     ack()
-    deliver(userChat)(deliveryId => ChatMsg(deliveryId, evt.message))
+    deliver(messenger)(deliveryId => ChatMsg(deliveryId, evt.message))
   }
 
   override def receiveRecover: Receive = {
-    case evt: StateChangedEvent                => state = evt.state
+    case evt: StateChangedEvent => state = evt.state
     case SnapshotOffer(_, snapshot: UserState) => state = snapshot
-    case MessageSentEvent(message)             => deliver(userChat)(deliveryId => ChatMsg(deliveryId, message))
-    case MessageConfirmedEvent(deliveryId)     => confirmDelivery(deliveryId); ()
+    case MessageSentEvent(message) => deliver(messenger)(deliveryId => ChatMsg(deliveryId, message))
+    case MessageConfirmedEvent(deliveryId) => confirmDelivery(deliveryId); ()
     case RecoveryCompleted =>
       timerState(state.status)
       log.debug(s"[$chatId] Recovering completed. Current state: $state")
@@ -88,8 +98,8 @@ class UserActor(
     status match {
       case s: FiniteStatus =>
         val currentTime = now
-        val time        = if (s.endTime < currentTime) currentTime else s.endTime
-        val duration    = max(s.endTime - currentTime, 0)
+        val time = if (s.endTime < currentTime) currentTime else s.endTime
+        val duration = max(s.endTime - currentTime, 0)
         log.debug(s"[$chatId] Scheduling timer, finish after ${FiniteDuration(duration, SECONDS)}")
         timers.startSingleTimer(timerKey, Finish(time), FiniteDuration(duration, SECONDS))
       case _ =>
@@ -103,23 +113,25 @@ class UserActor(
 case object UserActor {
 
   def props(
-      chatId: Long,
-      chat: ActorSelection,
-      timeUnit: TimeUnit = MINUTES,
-      defaultSettings: UserSettings = defaultUserSettings,
-      snapshotInterval: Int = 1000
+    chatId: Long,
+    chat: ActorSelection,
+    timeUnit: TimeUnit = MINUTES,
+    defaultSettings: UserSettings = defaultUserSettings,
+    snapshotInterval: Int = 1000
   ): Props =
     Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
 
-  final case class StateChangedEvent(chatId: Long, state: UserState, cmd: Command)
 
   final case class CommandMsg(cmd: Command, ask: () => Unit)
+
   final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
 
   final case class MessageSentEvent(message: TSendMessage)
+
   final case class MessageConfirmedEvent(deliveryId: Long)
 
   final case class ChatMsg(deliveryId: Long, msg: TSendMessage)
+
   final case class ChatMsgConfirm(deliveryId: Long)
 
   private def now: Long = OffsetDateTime.now().toEpochSecond

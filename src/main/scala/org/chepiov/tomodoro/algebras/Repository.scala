@@ -23,14 +23,14 @@ trait Repository[F[_]] {
     * @param limit  of logs
     * @return
     */
-  def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[StatLog]]
+  def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[ActivityLog]]
 
   /**
     * Adds new activity log
     *
     * @param log to add
     */
-  def addLog(log: StatLog): F[Unit]
+  def addLog(log: ActivityLog): F[Unit]
 
   /**
     * Counts completed by user tomodoroes in time period.
@@ -44,69 +44,69 @@ trait Repository[F[_]] {
 
 case object Repository {
 
-  final case class StatLog(
+  final case class ActivityLog(
       chatId: Long,
       time: OffsetDateTime,
-      descriptor: StatDescriptor,
+      descriptor: ActivityDescriptor,
       log: String
   )
 
-  sealed trait StatDescriptor extends EnumEntry with Uppercase {
+  sealed trait ActivityDescriptor extends EnumEntry with Uppercase {
     def log: String
   }
 
-  object StatDescriptor extends Enum[StatDescriptor] {
-    override def values: immutable.IndexedSeq[StatDescriptor] = findValues
+  object ActivityDescriptor extends Enum[ActivityDescriptor] {
+    override def values: immutable.IndexedSeq[ActivityDescriptor] = findValues
 
-    case object CycleFinished extends StatDescriptor {
+    case object CycleFinished extends ActivityDescriptor {
       override def log: String = "Cycle finished at: %s"
     }
 
-    case object TomodoroFinished extends StatDescriptor {
+    case object TomodoroFinished extends ActivityDescriptor {
       override def log: String = "Tomodoro finished at: %s, remaining tomodoroes: %d"
     }
 
-    case object ShortBreakFinished extends StatDescriptor {
+    case object ShortBreakFinished extends ActivityDescriptor {
       override def log: String = "Short break finished at: %s"
     }
 
-    case object LongBreakFinished extends StatDescriptor {
+    case object LongBreakFinished extends ActivityDescriptor {
       override def log: String = "Long break finished at: %s"
     }
 
-    case object TomodoroPaused extends StatDescriptor {
+    case object TomodoroPaused extends ActivityDescriptor {
       override def log: String = "Tomodoro paused at: %s"
     }
 
-    case object BreakPaused extends StatDescriptor {
+    case object BreakPaused extends ActivityDescriptor {
       override def log: String = "Break paused at: %s"
     }
 
-    case object TomodoroStarted extends StatDescriptor {
+    case object TomodoroStarted extends ActivityDescriptor {
       override def log: String = "Tomodoro started or continued at: %s, remaining tomodoroes: %d"
     }
 
-    case object ShortBreakStarted extends StatDescriptor {
+    case object ShortBreakStarted extends ActivityDescriptor {
       override def log: String = "Short break started or continued at: %s"
     }
 
-    case object LongBreakStarted extends StatDescriptor {
+    case object LongBreakStarted extends ActivityDescriptor {
       override def log: String = "Long break started or continued at: %s"
     }
 
-    case object TomodoroSkipped extends StatDescriptor {
+    case object TomodoroSkipped extends ActivityDescriptor {
       override def log: String = "Tomodoro skipped at: %s"
     }
 
-    case object BreakSkipped extends StatDescriptor {
+    case object BreakSkipped extends ActivityDescriptor {
       override def log: String = "Break skipped at: %s"
     }
 
-    case object SettingsUpdated extends StatDescriptor {
+    case object SettingsUpdated extends ActivityDescriptor {
       override def log: String = "Settings updated at: %s"
     }
 
-    case object CycleReset extends StatDescriptor {
+    case object CycleReset extends ActivityDescriptor {
       override def log: String = "Cycle reset at: %s"
     }
   }

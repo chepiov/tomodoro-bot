@@ -13,19 +13,19 @@ import doobie.postgres.implicits._
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Repository
-import org.chepiov.tomodoro.algebras.Repository.StatDescriptor.TomodoroFinished
-import org.chepiov.tomodoro.algebras.Repository.{StatDescriptor, StatLog}
+import org.chepiov.tomodoro.algebras.Repository.ActivityDescriptor.TomodoroFinished
+import org.chepiov.tomodoro.algebras.Repository.{ActivityDescriptor, ActivityLog}
 
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
 
-  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[StatLog]] =
+  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[ActivityLog]] =
     for {
       logs <- SQL.findLogs(chatId, offset, limit).to[List].transact(xa)
       _    <- Logger[F].debug(s"[$chatId] Found logs, limit: $limit, offset: $offset, size: ${logs.size}")
     } yield logs
 
-  override def addLog(log: StatLog): F[Unit] =
+  override def addLog(log: ActivityLog): F[Unit] =
     for {
       id <- SQL.addLog(log).withUniqueGeneratedKeys[UUID]("id").transact(xa)
       r  <- Logger[F].debug(s"[${log.chatId}] Log added with id: $id")
@@ -65,16 +65,16 @@ case object RepositorySQL {
   implicit val odtMeta: Meta[OffsetDateTime] =
     Meta[Instant].timap(i => OffsetDateTime.ofInstant(i, ZoneOffset.UTC))(odt => odt.toInstant)
 
-  implicit val statTypeMeta: Meta[StatDescriptor] =
-    Meta[String].timap(StatDescriptor.withName)(_.entryName)
+  implicit val statTypeMeta: Meta[ActivityDescriptor] =
+    Meta[String].timap(ActivityDescriptor.withName)(_.entryName)
 
-  def addLog(log: StatLog): Update0 =
+  def addLog(log: ActivityLog): Update0 =
     sql"""
          INSERT into user_log(chat_id, time, descriptor, log)
          VALUES(${log.chatId}, ${log.time}, ${log.descriptor}, ${log.log})
        """.update
 
-  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[StatLog] =
+  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[ActivityLog] =
     sql"""
          SELECT chat_id, time, descriptor, log
          FROM user_log
@@ -82,7 +82,7 @@ case object RepositorySQL {
          ORDER BY time DESC
          LIMIT $limit
          OFFSET $offset
-       """.query[StatLog]
+       """.query[ActivityLog]
 
   def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): Query0[Int] =
     sql"""
@@ -90,6 +90,6 @@ case object RepositorySQL {
          FROM user_log
          WHERE chat_id = $chatId
          AND time BETWEEN $from AND $to
-         AND descriptor = ${TomodoroFinished: StatDescriptor}
+         AND descriptor = ${TomodoroFinished: ActivityDescriptor}
        """.query[Int]
 }

@@ -4,14 +4,21 @@ import akka.actor.SupervisorStrategy.Restart
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.pattern.{BackoffOpts, BackoffSupervisor}
 import cats.effect.Effect
-import org.chepiov.tomodoro.actors.UserActor.StateChangedEvent
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
+import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class UsersActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateChangedEvent => F[Try[Unit]])
+/**
+  * Represents aggregation root of users
+  *
+  * @param messenger user messenger
+  * @param activity user activity recorder
+  */
+class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Try[Unit]], activity: StateChangedEvent => F[Try[Unit]])
     extends Actor with ActorLogging {
+
   import UsersActor._
   import context._
 
@@ -30,9 +37,9 @@ class UsersActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateCh
   }
 
   private def createUser(chatId: Long): ActorRef = {
-    val chatActor = actorOf(UserChatActor.props(chat), s"chat-$chatId")
+    val messengerActor = actorOf(MessengerActor.props(messenger), s"messenger-$chatId")
 
-    val userActorProps = UserActor.props(chatId, system.actorSelection(chatActor.path))
+    val userActorProps = UserActor.props(chatId, system.actorSelection(messengerActor.path))
     val userActorSupervisorProps = BackoffSupervisor.props(
       BackoffOpts.onStop(
         userActorProps,
@@ -44,17 +51,17 @@ class UsersActor[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateCh
     )
     val userActorSupervisor = context.actorOf(userActorSupervisorProps, name = s"user-supervisor-$chatId")
 
-    val userStatActorProps = UserStatActor.props(chatId, stat)
-    val userStatActorSupervisorProps = BackoffSupervisor.props(
+    val userActivityActorProps = UserActivityActor.props(chatId, activity)
+    val userActivityActorSupervisorProps = BackoffSupervisor.props(
       BackoffOpts.onStop(
-        userStatActorProps,
-        childName = s"user-stat-$chatId",
+        userActivityActorProps,
+        childName = s"user-activity-$chatId",
         minBackoff = 3.seconds,
         maxBackoff = 30.seconds,
         randomFactor = 0.2
       )
     )
-    context.actorOf(userStatActorSupervisorProps, name = s"user-stat-supervisor-$chatId")
+    context.actorOf(userActivityActorSupervisorProps, name = s"user-activity-supervisor-$chatId")
 
     userActorSupervisor
   }
@@ -70,4 +77,5 @@ case object UsersActor {
     Props(new UsersActor(chat, stat))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)
+
 }

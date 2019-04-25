@@ -4,7 +4,7 @@ import java.time.OffsetDateTime
 
 import cats.syntax.option._
 import enumeratum.{EnumEntry, _}
-import org.chepiov.tomodoro.algebras.Repository.StatLog
+import org.chepiov.tomodoro.algebras.Repository.ActivityLog
 import org.chepiov.tomodoro.algebras.Telegram._
 import org.chepiov.tomodoro.algebras.User._
 
@@ -90,10 +90,10 @@ case object UserMessages {
   def invalidValueMsg(chatId: Long, state: UserState): TSendMessage =
     message(chatId, invalidValueText, state)
 
-  def logsMsg(chatId: Long, page: Int, logs: List[StatLog]): TSendMessage =
+  def logsMsg(chatId: Long, page: Int, logs: List[ActivityLog]): TSendMessage =
     TSendMessage(chatId, logsText(logs), logsKeyboard(page, logs.isEmpty))
 
-  def logsEditMsg(chatId: Long, messageId: Long, page: Int, logs: List[StatLog]): TEditMessage =
+  def logsEditMsg(chatId: Long, messageId: Long, page: Int, logs: List[ActivityLog]): TEditMessage =
     TEditMessage(chatId, messageId, logsText(logs), logsKeyboard(page, logs.isEmpty))
 
   def completedLastDayMsg(chatId: Long, count: Int): TSendMessage =
@@ -265,7 +265,7 @@ private[programs] case object UserMessageTexts {
        |${stateText(state)}
        |""".stripMargin
 
-  def logsText(logs: List[StatLog]): String =
+  def logsText(logs: List[ActivityLog]): String =
     if (logs.nonEmpty)
       logs.map(_.log).mkString("\n")
     else "There is no activity"
