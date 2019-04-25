@@ -33,6 +33,7 @@
 * `Cats` and `Cats Effect` for FP awesomeness
 * `Akka Http` as the web server
 * `Akka Persistence` as the CQRS implementation
+* `Doobie` for database access
 * `spray-json` for json serialization
 * `ScalaCheck` for property based testing
 * `Tagless Final` for the core domain
