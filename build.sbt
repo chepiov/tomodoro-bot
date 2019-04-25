@@ -5,7 +5,7 @@ scalaVersion := "2.12.8"
 enablePlugins(JavaAppPackaging)
 
 wartremoverErrors ++= Warts.unsafe
-wartremoverExcluded += 
+wartremoverExcluded +=
   baseDirectory.value / "src" / "main" / "scala" / "org" / "chepiov" / "tomodoro" / "actors"
 wartremoverErrors -= Wart.DefaultArguments
 

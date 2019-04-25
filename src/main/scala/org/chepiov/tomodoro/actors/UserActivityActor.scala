@@ -18,8 +18,8 @@ import scala.util.{Failure, Success, Try}
   * @param chatId   user chat id
   * @param consumer consumer of user activity stream
   */
-class UserActivityActor[F[_] : Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]])
-  extends PersistentActor with ActorLogging {
+class UserActivityActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]])
+    extends PersistentActor with ActorLogging {
 
   import UserActivityActor._
 
@@ -31,7 +31,7 @@ class UserActivityActor[F[_] : Effect](chatId: Long, consumer: StateChangedEvent
   implicit val mat: Materializer = ActorMaterializer()
 
   override def receiveRecover: Receive = {
-    case o: Long => context.become(working(o))
+    case o: Long                   => context.become(working(o))
     case SnapshotOffer(_, o: Long) => context.become(working(o))
     case RecoveryCompleted =>
       log.debug(s"[$chatId] Recovering completed")
@@ -78,7 +78,7 @@ class UserActivityActor[F[_] : Effect](chatId: Long, consumer: StateChangedEvent
 
 case object UserActivityActor {
 
-  def props[F[_] : Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]]): Props =
+  def props[F[_]: Effect](chatId: Long, consumer: StateChangedEvent => F[Try[Unit]]): Props =
     Props(new UserActivityActor[F](chatId, consumer))
 
   private val InitCmd = "INIT"

@@ -61,11 +61,11 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#user]].
     */
   final case class TUser(
-    id: Long,
-    isBot: Boolean,
-    firstName: String,
-    lastName: Option[String],
-    username: Option[String]
+      id: Long,
+      isBot: Boolean,
+      firstName: String,
+      lastName: Option[String],
+      username: Option[String]
   )
 
   /**
@@ -77,18 +77,18 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#message]].
     */
   final case class TMessage(
-    messageId: Long,
-    chat: TChat,
-    text: Option[String]
+      messageId: Long,
+      chat: TChat,
+      text: Option[String]
   )
 
   /**
     * @see [[https://core.telegram.org/bots/api#getting-updates]].
     */
   final case class TUpdate(
-    updateId: Long,
-    message: Option[TMessage],
-    callbackQuery: Option[TCallbackQuery]
+      updateId: Long,
+      message: Option[TMessage],
+      callbackQuery: Option[TCallbackQuery]
   )
 
   /**
@@ -100,10 +100,10 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#sendmessage]].
     */
   final case class TSendMessage(
-    chatId: Long,
-    text: String,
-    replyMarkup: Option[TReplyMarkup] = None,
-    parseMode: String = "Markdown"
+      chatId: Long,
+      text: String,
+      replyMarkup: Option[TReplyMarkup] = None,
+      parseMode: String = "Markdown"
   )
 
   /**
@@ -145,10 +145,10 @@ case object Telegram {
     * @see [[https://core.telegram.org/bots/api#editmessagetext]]
     */
   final case class TEditMessage(
-    chatId: Long,
-    messageId: Long,
-    text: String,
-    replyMarkup: Option[TInlineKeyboardMarkup] = None,
-    parseMode: String = "Markdown"
+      chatId: Long,
+      messageId: Long,
+      text: String,
+      replyMarkup: Option[TInlineKeyboardMarkup] = None,
+      parseMode: String = "Markdown"
   )
 }

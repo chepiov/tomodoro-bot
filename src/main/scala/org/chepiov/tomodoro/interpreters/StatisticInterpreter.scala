@@ -19,7 +19,7 @@ class StatisticInterpreter[F[_]: Logger: Monad](telegram: Telegram[F], repositor
 
   override def sendActivity(chatId: Long, page: Int, messageId: Option[Long] = None): F[Unit] =
     for {
-      _    <- Logger[F].debug(s"[] Finding user activity, page: $page, messageId: $messageId")
+      _    <- Logger[F].debug(s"[$chatId] Finding user activity, page: $page, messageId: $messageId")
       logs <- repository.findLogs(chatId, pageSize * page, pageSize)
       r <- messageId match {
             case Some(id) => telegram.editMessageText(logsEditMsg(chatId, id, page, logs))

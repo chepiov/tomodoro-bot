@@ -18,16 +18,16 @@ import scala.math.max
   * Represents user.
   *
   * @param chatId          related user chat id
-  * @param messenger   user messenger actor
+  * @param messenger       user messenger actor
   * @param timeUnit        time unit of users scheduling
   * @param defaultSettings settings for newly created user
   */
 class UserActor(
-  chatId: Long,
-  messenger: ActorSelection,
-  timeUnit: TimeUnit,
-  defaultSettings: UserSettings,
-  snapShotInterval: Int
+    chatId: Long,
+    messenger: ActorSelection,
+    timeUnit: TimeUnit,
+    defaultSettings: UserSettings,
+    snapShotInterval: Int
 ) extends Timers with PersistentActor with AtLeastOnceDelivery with ActorLogging {
 
   import UserActor._
@@ -85,10 +85,10 @@ class UserActor(
   }
 
   override def receiveRecover: Receive = {
-    case evt: StateChangedEvent => state = evt.state
+    case evt: StateChangedEvent                => state = evt.state
     case SnapshotOffer(_, snapshot: UserState) => state = snapshot
-    case MessageSentEvent(message) => deliver(messenger)(deliveryId => ChatMsg(deliveryId, message))
-    case MessageConfirmedEvent(deliveryId) => confirmDelivery(deliveryId); ()
+    case MessageSentEvent(message)             => deliver(messenger)(deliveryId => ChatMsg(deliveryId, message))
+    case MessageConfirmedEvent(deliveryId)     => confirmDelivery(deliveryId); ()
     case RecoveryCompleted =>
       timerState(state.status)
       log.debug(s"[$chatId] Recovering completed. Current state: $state")
@@ -98,8 +98,8 @@ class UserActor(
     status match {
       case s: FiniteStatus =>
         val currentTime = now
-        val time = if (s.endTime < currentTime) currentTime else s.endTime
-        val duration = max(s.endTime - currentTime, 0)
+        val time        = if (s.endTime < currentTime) currentTime else s.endTime
+        val duration    = max(s.endTime - currentTime, 0)
         log.debug(s"[$chatId] Scheduling timer, finish after ${FiniteDuration(duration, SECONDS)}")
         timers.startSingleTimer(timerKey, Finish(time), FiniteDuration(duration, SECONDS))
       case _ =>
@@ -113,14 +113,13 @@ class UserActor(
 case object UserActor {
 
   def props(
-    chatId: Long,
-    chat: ActorSelection,
-    timeUnit: TimeUnit = MINUTES,
-    defaultSettings: UserSettings = defaultUserSettings,
-    snapshotInterval: Int = 1000
+      chatId: Long,
+      chat: ActorSelection,
+      timeUnit: TimeUnit = MINUTES,
+      defaultSettings: UserSettings = defaultUserSettings,
+      snapshotInterval: Int = 1000
   ): Props =
     Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
-
 
   final case class CommandMsg(cmd: Command, ask: () => Unit)
 

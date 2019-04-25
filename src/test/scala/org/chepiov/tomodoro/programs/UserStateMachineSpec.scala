@@ -13,7 +13,8 @@ import scala.concurrent.duration._
 class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks with OptionValues {
   import UserStateMachineSpec._
 
-  private def advance(command: Command): State[UserState, Option[TSendMessage]] = UserStateMachine.advance(1L, command, MINUTES)
+  private def advance(command: Command): State[UserState, Option[TSendMessage]] =
+    UserStateMachine.advance(1L, command, MINUTES)
 
   private def toSeconds(duration: Int): Long = FiniteDuration(duration.toLong, MINUTES).toSeconds
 

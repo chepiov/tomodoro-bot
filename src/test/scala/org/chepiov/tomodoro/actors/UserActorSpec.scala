@@ -8,7 +8,7 @@ import java.time.OffsetDateTime
 import akka.actor.{ActorIdentity, ActorSystem, Identify}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, ChatMsg}
+import org.chepiov.tomodoro.actors.UserActor.{ChatMsg, CommandMsg}
 import org.chepiov.tomodoro.algebras.User._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
