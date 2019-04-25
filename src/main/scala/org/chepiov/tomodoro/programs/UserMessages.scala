@@ -105,6 +105,8 @@ case object UserMessages {
   def completedLastMonthMsg(chatId: Long, count: Int): TSendMessage =
     TSendMessage(chatId, completedLastMonthText(count))
 
+  def unknownMsg(chatId: Long): TSendMessage = TSendMessage(chatId, "What you mean?")
+
   private def message(chatId: Long, text: String, state: UserState): TSendMessage =
     TSendMessage(chatId, text, keyboard(state))
 }

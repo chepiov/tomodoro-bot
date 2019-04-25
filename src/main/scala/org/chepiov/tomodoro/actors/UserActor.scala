@@ -78,6 +78,9 @@ class UserActor(
         log.debug(s"[$chatId] State was not changed: $state")
         ack()
         persist(MessageSentEvent(message))(deliverMsg())
+      case _ =>
+        log.debug(s"[$chatId] Nothing to do")
+        ack()
     }
   }
 

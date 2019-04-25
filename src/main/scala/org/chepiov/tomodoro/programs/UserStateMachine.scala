@@ -272,7 +272,7 @@ case object UserStateMachine {
         val state = us.copy(settingsUpdate = AmountUpdate(t))
         (state, amountMsg(chatId, state).some)
       case (us @ UserState(_, _, NotUpdate), _: SetSettingsValue) =>
-        (us, none)
+        (us, unknownMsg(chatId).some)
       case (us, SetSettingsValue(_, value)) if value <= 0 =>
         (us, invalidValueMsg(chatId, us).some)
       case (us @ UserState(settings, _, settingsUpdate), SetSettingsValue(_, value)) if value > 0 =>

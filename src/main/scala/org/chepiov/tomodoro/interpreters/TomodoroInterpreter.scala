@@ -61,7 +61,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
       case TUpdate(_, Some(TMessage(_, TChat(chatId), text)), _) =>
         for {
           r <- Logger[F].warn(s"[$chatId] Invalid message: $text")
-          _ <- telegram.sendMessage(TSendMessage(chatId, "What you mean?"))
+          _ <- telegram.sendMessage(unknownMsg(chatId))
         } yield r
       case _ => for (r <- Logger[F].warn(s"Unknown update: $update")) yield r
     }
