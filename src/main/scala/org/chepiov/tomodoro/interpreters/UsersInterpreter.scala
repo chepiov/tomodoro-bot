@@ -14,11 +14,9 @@ import org.chepiov.tomodoro.actors.UsersActor.GetUser
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.{Repository, Telegram, User, Users}
 import org.chepiov.tomodoro.programs.UserActivity
-
-import scala.util.Success
 import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 class UsersInterpreter[F[_]: Logger: Effect](usersActor: ActorRef) extends Users[F] {
 

@@ -78,8 +78,8 @@ case object RepositoryInterpreter {
     } yield xa
   }
 
-  def initializeDb[F[_]](config: DbConfig)(implicit S: Sync[F]): F[Unit] =
-    S.delay {
+  def initializeDb[F[_]: Sync](config: DbConfig): F[Unit] =
+    Sync[F].delay {
       val fw: Flyway = {
         Flyway
           .configure()
