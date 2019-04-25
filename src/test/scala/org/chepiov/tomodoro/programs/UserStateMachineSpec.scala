@@ -9,7 +9,9 @@ import org.scalatest.{Matchers, OptionValues, PropSpec}
 
 import scala.concurrent.duration._
 
-@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Any"))
+@SuppressWarnings(
+  Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Any", "org.wartremover.warts.AsInstanceOf")
+)
 class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks with OptionValues {
   import UserStateMachineSpec._
 
@@ -279,6 +281,83 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
     }
   }
 
+  property("Skip must change Working to WaitingBreak") {
+    forAll(commandAndStateGen(Skip, Working)) {
+      case (command, initial) =>
+        val (state, answer) = advance(command).run(initial).value
+        state.status shouldBe a[WaitingBreak]
+        state.settings shouldBe initial.settings
+        answer shouldBe 'defined
+
+        state.status.startTime shouldBe command.time
+
+        state.status.remaining shouldBe initial.status.remaining
+        state.status.remaining should (be <= state.settings.amount and be >= 0)
+    }
+  }
+
+  property("Skip must change Breaking to WaitingWork") {
+    forAll(commandAndStateGen(Skip, Breaking)) {
+      case (command, initial) =>
+        val (state, answer) = advance(command).run(initial).value
+        state.status shouldBe a[WaitingWork]
+        state.settings shouldBe initial.settings
+        answer shouldBe 'defined
+
+        state.status.startTime shouldBe command.time
+
+        if (initial.status.remaining == 0)
+          state.status.remaining shouldBe state.settings.amount
+        else
+          state.status.remaining shouldBe initial.status.remaining
+        state.status.remaining should (be <= state.settings.amount and be > 0)
+    }
+  }
+
+  property("Skip must not change nothing for WorkSuspended") {
+    forAll(commandAndSuspendedStateGen(Skip, WorkSuspended)) {
+      case (command, initial) =>
+        whenever(initial.status.remaining > 0) {
+          val (state, answer) = advance(command).run(initial).value
+          state shouldBe initial
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("Skip must not change nothing for BreakSuspended") {
+    forAll(commandAndSuspendedStateGen(Skip, BreakSuspended)) {
+      case (command, initial) =>
+        whenever(initial.status.remaining > 0) {
+          val (state, answer) = advance(command).run(initial).value
+          state shouldBe initial
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("Skip must not change nothing for WaitingWork") {
+    forAll(commandAndStateGen(Skip, WaitingWork)) {
+      case (command, initial) =>
+        whenever(initial.status.remaining > 0) {
+          val (state, answer) = advance(command).run(initial).value
+          state shouldBe initial
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("Skip must not change nothing for WaitingBreak") {
+    forAll(commandAndStateGen(Skip, WaitingBreak)) {
+      case (command, initial) =>
+        whenever(initial.status.remaining > 0) {
+          val (state, answer) = advance(command).run(initial).value
+          state shouldBe initial
+          answer shouldBe 'defined
+        }
+    }
+  }
+
   property("SetSettings must change nothing") {
     forAll(commandAndAnyStateGen(SetSettings)) {
       case (command, initial) =>
@@ -293,7 +372,170 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
     }
   }
 
-  property("Stop must change state to WaitingForWork") {
+  property("AwaitChangingDuration must change update status") {
+    forAll(commandAndAnyStateGen(AwaitChangingDuration)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0) || !initial.status
+            .isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) = advance(command).run(initial).value
+          state.status shouldBe initial.status
+          state.settings shouldBe initial.settings
+          state.settingsUpdate shouldBe DurationUpdate(command.time)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("AwaitChangingLongBreak must change update status") {
+    forAll(commandAndAnyStateGen(AwaitChangingLongBreak)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0) || !initial.status
+            .isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) = advance(command).run(initial).value
+          state.status shouldBe initial.status
+          state.settings shouldBe initial.settings
+          state.settingsUpdate shouldBe LongBreakUpdate(command.time)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("AwaitChangingShortBreak must change update status") {
+    forAll(commandAndAnyStateGen(AwaitChangingShortBreak)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0) || !initial.status
+            .isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) = advance(command).run(initial).value
+          state.status shouldBe initial.status
+          state.settings shouldBe initial.settings
+          state.settingsUpdate shouldBe ShortBreakUpdate(command.time)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("AwaitChangingAmount must change update status") {
+    forAll(commandAndAnyStateGen(AwaitChangingAmount)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0) || !initial.status
+            .isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) = advance(command).run(initial).value
+          state.status shouldBe initial.status
+          state.settings shouldBe initial.settings
+          state.settingsUpdate shouldBe AmountUpdate(command.time)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("SetSettingsValue must not change anything for inappropriate states") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) = advance(command).run(initial.copy(settingsUpdate = NotUpdate)).value
+          state shouldBe initial
+          answer shouldBe empty
+        }
+    }
+  }
+
+  property("SetSettingsValue must change duration") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) =
+            advance(command).run(initial.copy(settingsUpdate = DurationUpdate(initial.status.startTime))).value
+          state.status shouldBe initial.status
+          state.settingsUpdate shouldBe NotUpdate
+          state.settings shouldBe initial.settings.copy(duration = command.asInstanceOf[SetSettingsValue].value)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("SetSettingsValue must change short break") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) =
+            advance(command).run(initial.copy(settingsUpdate = ShortBreakUpdate(initial.status.startTime))).value
+          state.status shouldBe initial.status
+          state.settingsUpdate shouldBe NotUpdate
+          state.settings shouldBe initial.settings.copy(shortBreak = command.asInstanceOf[SetSettingsValue].value)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("SetSettingsValue must change long break") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) =
+            advance(command).run(initial.copy(settingsUpdate = LongBreakUpdate(initial.status.startTime))).value
+          state.status shouldBe initial.status
+          state.settingsUpdate shouldBe NotUpdate
+          state.settings shouldBe initial.settings.copy(longBreak = command.asInstanceOf[SetSettingsValue].value)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("SetSettingsValue must change amount") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue)) {
+      case (command, initial) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val (state, answer) =
+            advance(command).run(initial.copy(settingsUpdate = AmountUpdate(initial.status.startTime))).value
+          state.status shouldBe initial.status
+          state.settingsUpdate shouldBe NotUpdate
+          state.settings shouldBe initial.settings.copy(amount = command.asInstanceOf[SetSettingsValue].value)
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("Invalid SetSettingsValue must change nothing") {
+    forAll(valueCommandAndAnyStateGen(SetSettingsValue), Gen.negNum[Int]) {
+      case ((command, initial), invalidValue) =>
+        whenever(
+          (initial.status.isInstanceOf[WaitingWork] && initial.status.remaining > 0)
+            || !initial.status.isInstanceOf[WaitingWork]
+        ) {
+          val initialState = initial.copy(settingsUpdate = DurationUpdate(initial.status.startTime))
+          val (state, answer) = advance(SetSettingsValue(command.time, invalidValue))
+            .run(initialState)
+            .value
+          state shouldBe initialState
+          answer shouldBe 'defined
+        }
+    }
+  }
+
+  property("Reset must change state to WaitingForWork") {
     forAll(commandAndAnyStateGen(Reset)) {
       case (command, initial) =>
         whenever(
@@ -315,11 +557,15 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
 
 case object UserStateMachineSpec {
 
-  def commandGen[A <: Command](f: (Long, UserSettings) => A): Gen[A] =
+  def commandGen[A <: Command](f: (Long, UserSettings, Int) => A): Gen[A] =
     for {
+      value    <- Gen.choose(1, 1000)
       time     <- Gen.posNum[Long]
       settings <- settingsGen
-    } yield f(time, settings)
+    } yield f(time, settings, value)
+
+  def commandGen[A <: Command](f: (Long, UserSettings) => A): Gen[A] =
+    commandGen((t, s, _) => f(t, s))
 
   def commandGen[A <: Command](f: Long => A): Gen[A] =
     commandGen((t, _) => f(t))
@@ -472,14 +718,20 @@ case object UserStateMachineSpec {
   ): Gen[(Command, UserState)] =
     commandAndStateGen((t, _) => cb(t), (r, s, _) => sb(r, s))
 
-  def commandAndAnyStateGen[C <: Command](cb: (Long, UserSettings) => C): Gen[(Command, UserState)] =
+  def commandAndAnyStateGen[C <: Command](cb: (Long, UserSettings, Int) => C): Gen[(Command, UserState)] =
     for {
       cmd   <- commandGen(cb)
       state <- anyStateGen(cmd.time)
     } yield (cmd, state)
 
+  def commandAndAnyStateGen[C <: Command](cb: (Long, UserSettings) => C): Gen[(Command, UserState)] =
+    commandAndAnyStateGen((t, s, _) => cb(t, s))
+
+  def valueCommandAndAnyStateGen[C <: Command](cb: (Long, Int) => C): Gen[(Command, UserState)] =
+    commandAndAnyStateGen((t, _, v) => cb(t, v))
+
   def commandAndAnyStateGen[C <: Command](cb: Long => C): Gen[(Command, UserState)] =
-    commandAndAnyStateGen((t, _) => cb(t))
+    commandAndAnyStateGen((t, _, _) => cb(t))
 
   val continueAndWaitingWorkWithoutRemaining: Gen[(Command, UserState)] =
     for {

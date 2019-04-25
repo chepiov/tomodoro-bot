@@ -2,6 +2,7 @@ package org.chepiov.tomodoro.actors
 
 import java.time.OffsetDateTime
 
+import akka.actor.Status.Failure
 import akka.actor.{ActorLogging, ActorSelection, Props, Timers}
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted, SnapshotOffer}
@@ -50,6 +51,8 @@ class UserActor(
         confirmDelivery(evt.deliveryId)
         log.debug(s"[$chatId] Message delivered")
       }
+    case Failure(e) =>
+      log.error(e, "Probably can't deliver message")
     case UnconfirmedWarning(unconfirmed) =>
       log.warning(s"[$chatId] There are messages which can't be delivered to user chat, skipping")
       unconfirmed.foreach(u => confirmDelivery(u.deliveryId))
@@ -64,7 +67,7 @@ class UserActor(
         persist(StateChangedEvent(chatId, s, cmd)) { evt =>
           log.debug(s"[$chatId] State event persisted: ${evt.state}")
           ack()
-          state = evt.state
+          updateState(evt.state)
           if (lastSequenceNr % snapShotInterval == 0 && lastSequenceNr != 0)
             saveSnapshot(state)
           maybeMessage.foreach { message =>
@@ -84,9 +87,12 @@ class UserActor(
     deliver(messenger)(deliveryId => ChatMsg(deliveryId, evt.message))
   }
 
+  private[actors] def updateState(newState: UserState): Unit =
+    state = newState
+
   override def receiveRecover: Receive = {
-    case evt: StateChangedEvent                => state = evt.state
-    case SnapshotOffer(_, snapshot: UserState) => state = snapshot
+    case evt: StateChangedEvent                => updateState(evt.state)
+    case SnapshotOffer(_, snapshot: UserState) => updateState(snapshot)
     case MessageSentEvent(message)             => deliver(messenger)(deliveryId => ChatMsg(deliveryId, message))
     case MessageConfirmedEvent(deliveryId)     => confirmDelivery(deliveryId); ()
     case RecoveryCompleted =>

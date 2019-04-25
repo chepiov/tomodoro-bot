@@ -119,8 +119,8 @@ object UserActivity {
 
   private case object reset {
     def unapply(event: StateChangedEvent): Option[ActivityLog] = event match {
-      case StateChangedEvent(chatId, _, Reset(startTime)) =>
-        val time = at(startTime)
+      case StateChangedEvent(chatId, state, Reset(_)) =>
+        val time = at(state.status.startTime)
         val log  = CycleReset.log.format(formatter.format(time))
         ActivityLog(chatId, time, CycleReset, log).some
       case _ => none
@@ -129,7 +129,7 @@ object UserActivity {
 
   private case object settingsUpdated {
     def unapply(event: StateChangedEvent): Option[ActivityLog] = event match {
-      case StateChangedEvent(chatId, UserState(_, _, _), SetSettings(startTime)) =>
+      case StateChangedEvent(chatId, UserState(_, _, _), SetSettingsValue(startTime, _)) =>
         val time = at(startTime)
         val log  = SettingsUpdated.log.format(formatter.format(time))
         ActivityLog(chatId, time, SettingsUpdated, log).some
@@ -137,6 +137,6 @@ object UserActivity {
     }
   }
 
-  private def at(epoch: Long): OffsetDateTime =
+  private[programs] def at(epoch: Long): OffsetDateTime =
     OffsetDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC)
 }

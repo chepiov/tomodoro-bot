@@ -58,6 +58,11 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
           _ <- sendActivity(chatId, page, messageId.some)
           r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
+      case TUpdate(_, Some(TMessage(_, TChat(chatId), text)), _) =>
+        for {
+          r <- Logger[F].warn(s"[$chatId] Invalid message: $text")
+          _ <- telegram.sendMessage(TSendMessage(chatId, "What you mean?"))
+        } yield r
       case _ => for (r <- Logger[F].warn(s"Unknown update: $update")) yield r
     }
   }
@@ -143,7 +148,8 @@ case object TomodoroInterpreter {
 
   private object settingsValue {
     def unapply(update: TUpdate): Option[(Long, Int)] = update match {
-      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some(value))), None) if value.forall(Character.isDigit) =>
+      case TUpdate(_, Some(TMessage(_, TChat(chatId), Some(value))), None)
+          if value.forall(Character.isDigit) && value.toInt > 0 =>
         (chatId, value.toInt).some
       case _ => none
     }
