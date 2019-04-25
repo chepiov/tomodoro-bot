@@ -21,13 +21,12 @@ import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
-class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
-    implicit actorSystem: ActorSystem
-) extends Telegram[F] {
+class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig, actorSystem: ActorSystem) extends Telegram[F] {
   import TelegramJsonSupport._
 
   private val uri = s"${config.scheme}://${config.host}/bot${config.token}"
 
+  implicit private val system: ActorSystem  = actorSystem
   implicit private val mat: Materializer    = ActorMaterializer()
   implicit private val ec: ExecutionContext = actorSystem.dispatcher
 
@@ -64,8 +63,6 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
       _        <- checkResponse(response, "editMessageText")
       r        <- Logger[F].debug(s"editMessageText result status: ${response.status}")
     } yield r
-
-
 
   override def getMe: F[TUser] =
     for {
@@ -189,15 +186,17 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
 case object TelegramInterpreter {
 
   def apply[I[_]: Monad, F[_]: Logger: Async](
-      config: TelegramConfig
-  )(implicit actorSystem: ActorSystem): I[Telegram[F]] =
-    (new TelegramInterpreter[F](config): Telegram[F]).pure[I]
+      config: TelegramConfig,
+      actorSystem: ActorSystem
+  ): I[Telegram[F]] =
+    (new TelegramInterpreter[F](config, actorSystem): Telegram[F]).pure[I]
 
   def apply[F[_]: Async](
-      config: TelegramConfig
-  )(implicit actorSystem: ActorSystem): F[Telegram[F]] =
+      config: TelegramConfig,
+      actorSystem: ActorSystem
+  ): F[Telegram[F]] =
     for {
       implicit0(logger: Logger[F]) <- Slf4jLogger.create
-      t                            <- apply[F, F](config)
+      t                            <- apply[F, F](config, actorSystem)
     } yield t
 }

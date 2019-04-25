@@ -3,11 +3,12 @@ package org.chepiov.tomodoro.interpreters
 import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 
-import cats.effect.{Async, ContextShift}
+import cats.effect.{Async, ContextShift, Resource, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import doobie._
+import doobie.hikari.HikariTransactor
 import doobie.implicits._
 import doobie.postgres.implicits._
 import io.chrisdavenport.log4cats.Logger
@@ -15,6 +16,7 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.algebras.Repository
 import org.chepiov.tomodoro.algebras.Repository.ActivityDescriptor.TomodoroFinished
 import org.chepiov.tomodoro.algebras.Repository.{ActivityDescriptor, ActivityLog}
+import org.flywaydb.core.Flyway
 
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
@@ -40,24 +42,52 @@ class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repo
 
 case object RepositoryInterpreter {
 
-  def apply[I[_]: Applicative, F[_]: Logger: Async: ContextShift](config: DbConfig): I[Repository[F]] =
+  def apply[I[_]: Applicative, F[_]: Logger: Async: ContextShift](xa: Transactor[F]): I[Repository[F]] =
     for {
       _ <- Applicative[I].unit
-      xa = Transactor.fromDriverManager[F](
-        config.driver,
-        config.uri,
-        config.user,
-        config.password
-      )
     } yield new RepositoryInterpreter[F](xa)
 
-  def apply[F[_]: Async: ContextShift](config: DbConfig): F[Repository[F]] =
+  def apply[F[_]: Async: ContextShift](xa: Transactor[F]): F[Repository[F]] =
     for {
       implicit0(logger: Logger[F]) <- Slf4jLogger.create[F]
-      r                            <- apply[F, F](config)
+      r                            <- apply[F, F](xa)
     } yield r
 
-  final case class DbConfig(driver: String, uri: String, user: String, password: String)
+  final case class DbConfig(
+      driver: String,
+      uri: String,
+      user: String,
+      password: String,
+      poolSize: Int
+  )
+
+  def dbTransactor[F[_]: Async: ContextShift](
+      config: DbConfig
+  ): Resource[F, Transactor[F]] = {
+    for {
+      connEc <- ExecutionContexts.fixedThreadPool[F](config.poolSize)
+      txnEc  <- ExecutionContexts.cachedThreadPool[F]
+      xa <- HikariTransactor.newHikariTransactor[F](
+             config.driver,
+             config.uri,
+             config.user,
+             config.password,
+             connEc,
+             txnEc
+           )
+    } yield xa
+  }
+
+  def initializeDb[F[_]](config: DbConfig)(implicit S: Sync[F]): F[Unit] =
+    S.delay {
+      val fw: Flyway = {
+        Flyway
+          .configure()
+          .dataSource(config.uri, config.user, config.password)
+          .load()
+      }
+      fw.migrate()
+    }.as(())
 }
 
 case object RepositorySQL {
