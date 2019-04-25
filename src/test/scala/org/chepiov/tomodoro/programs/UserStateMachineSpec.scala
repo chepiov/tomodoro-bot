@@ -9,6 +9,7 @@ import org.scalatest.{Matchers, OptionValues, PropSpec}
 
 import scala.concurrent.duration._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.Any"))
 class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks with OptionValues {
   import UserStateMachineSpec._
 

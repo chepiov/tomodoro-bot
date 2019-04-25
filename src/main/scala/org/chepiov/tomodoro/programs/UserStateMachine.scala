@@ -13,6 +13,7 @@ import scala.concurrent.duration.{FiniteDuration, TimeUnit}
   */
 case object UserStateMachine {
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def advance(chatId: Long, cmd: Command, timeUnit: TimeUnit): State[UserState, Option[TSendMessage]] =
     for {
       init            <- State.get[UserState]

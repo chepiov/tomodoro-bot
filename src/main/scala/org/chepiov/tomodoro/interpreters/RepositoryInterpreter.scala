@@ -21,7 +21,7 @@ import org.flywaydb.core.Flyway
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
 
-  override def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[ActivityLog]] =
+  override def findLogs(chatId: Long, offset: Int, limit: Int): F[List[ActivityLog]] =
     for {
       logs <- SQL.findLogs(chatId, offset, limit).to[List].transact(xa)
       _    <- Logger[F].debug(s"[$chatId] Found logs, limit: $limit, offset: $offset, size: ${logs.size}")

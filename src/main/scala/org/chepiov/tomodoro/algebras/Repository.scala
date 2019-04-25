@@ -23,7 +23,7 @@ trait Repository[F[_]] {
     * @param limit  of logs
     * @return
     */
-  def findLogs(chatId: Long, offset: Int, limit: Int = 10): F[List[ActivityLog]]
+  def findLogs(chatId: Long, offset: Int, limit: Int): F[List[ActivityLog]]
 
   /**
     * Adds new activity log

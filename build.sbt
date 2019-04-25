@@ -4,6 +4,11 @@ scalaVersion := "2.12.8"
 
 enablePlugins(JavaAppPackaging)
 
+wartremoverErrors ++= Warts.unsafe
+wartremoverExcluded += 
+  baseDirectory.value / "src" / "main" / "scala" / "org" / "chepiov" / "tomodoro" / "actors"
+wartremoverErrors -= Wart.DefaultArguments
+
 libraryDependencies += "com.github.mpilquist"      %% "simulacrum"                   % "0.15.0"
 libraryDependencies += "org.typelevel"             %% "cats-effect"                  % "1.2.0"
 libraryDependencies += "com.typesafe.akka"         %% "akka-stream"                  % "2.5.22"

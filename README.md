@@ -7,7 +7,7 @@
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
-***
+
 **Telegram bot for the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique).**
 
 **Under active development!**
@@ -23,3 +23,18 @@
 * `/reset`     - reset the whole tomodoro cycle
 * `/settings`  - change settings
 * `/stats`     - show stats
+
+
+### What it is ###
+* Just study project
+* An effort to apply FP techniques (`cats`/`cats-effect`) in the `Akka` ecosystem
+
+### Stack ###
+* `Cats` and `Cats Effect` for FP awesomeness
+* `Akka Http` as the web server
+* `Akka Persistence` as the CQRS implementation
+* `spray-json` for json serialization
+* `ScalaCheck` for property based testing
+* `Tagless Final` for the core domain
+
+

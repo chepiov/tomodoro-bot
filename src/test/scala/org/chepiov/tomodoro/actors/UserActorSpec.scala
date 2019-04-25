@@ -14,6 +14,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class UserActorSpec
     extends TestKit(ActorSystem("test-system", ConfigFactory.load("application-persistence-test"))) with WordSpecLike
     with Matchers with BeforeAndAfterAll with ImplicitSender {
@@ -60,6 +61,7 @@ class UserActorSpec
       system.actorSelection(userActor.path) ! Identify(1)
       expectMsg(ActorIdentity(1, Some(userActor)))
 
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
       @volatile var c = false
       userActor ! CommandMsg(Continue(currentTime), () => c = true)
       awaitCond(c)

@@ -158,6 +158,7 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
           kb.toJson
       }
 
+    @SuppressWarnings(Array("org.wartremover.warts.Throw"))
     override def read(json: JsValue): TReplyMarkup = {
       val fields = json.asJsObject().fields
       fields match {

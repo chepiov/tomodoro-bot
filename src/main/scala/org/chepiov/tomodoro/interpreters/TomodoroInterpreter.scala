@@ -48,7 +48,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
         } yield r
       case statsCallbackQuery(chatId, callbackId, statsType) =>
         for {
-          _ <- Logger[F].debug(s"[$chatId] Received stats callback query, type: $statsType")
+          _ <- Logger[F].debug(s"[$chatId] Received stats callback query, type: ${statsType.entryName}")
           _ <- sendStats(chatId, statsType)
           r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
