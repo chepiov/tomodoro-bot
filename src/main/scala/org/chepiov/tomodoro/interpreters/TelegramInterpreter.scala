@@ -65,6 +65,8 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig)(
       r        <- Logger[F].debug(s"editMessageText result status: ${response.status}")
     } yield r
 
+
+
   override def getMe: F[TUser] =
     for {
       request  <- Async[F].delay(HttpRequest(method = HttpMethods.GET, uri = Uri(s"$uri/getMe")))
@@ -138,7 +140,8 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
   implicit val inlineKeyboardButton: RootJsonFormat[TInlineKeyboardButton] =
     jsonFormat(TInlineKeyboardButton.apply, "text", "callback_data")
 
-  implicit val inlineKeyboardMarkup: RootJsonFormat[TInlineKeyboardMarkup] = jsonFormat1(TInlineKeyboardMarkup)
+  implicit val inlineKeyboardMarkup: RootJsonFormat[TInlineKeyboardMarkup] =
+    jsonFormat(TInlineKeyboardMarkup.apply, "inline_keyboard")
 
   implicit val userFormat: RootJsonFormat[TUser] =
     jsonFormat(TUser.apply, "id", "is_bot", "first_name", "last_name", "username")
@@ -152,10 +155,10 @@ private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport w
   implicit def keyboardMarkup: RootJsonFormat[TReplyMarkup] = new RootJsonFormat[TReplyMarkup] {
     override def write(obj: TReplyMarkup): JsValue =
       obj match {
-        case TReplyKeyboardMarkup(k) =>
-          JsObject("keyboard" -> k.toJson)
-        case TInlineKeyboardMarkup(k) =>
-          JsObject("inline_keyboard" -> k.toJson)
+        case kb: TReplyKeyboardMarkup =>
+          kb.toJson
+        case kb: TInlineKeyboardMarkup =>
+          kb.toJson
       }
 
     override def read(json: JsValue): TReplyMarkup = {
