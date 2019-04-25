@@ -445,7 +445,7 @@ class UserStateMachineSpec extends PropSpec with Matchers with PropertyChecks wi
         ) {
           val (state, answer) = advance(command).run(initial.copy(settingsUpdate = NotUpdate)).value
           state shouldBe initial
-          answer shouldBe empty
+          answer shouldBe 'defined
         }
     }
   }
