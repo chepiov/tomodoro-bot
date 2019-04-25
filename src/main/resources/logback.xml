@@ -12,6 +12,7 @@
     <logger name="akka" level="INFO"/>
     <logger name="com.typesafe" level="INFO"/>
     <logger name="org.mongodb" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
 
     <root level="${LOGLEVEL:-DEBUG}">
         <appender-ref ref="STDOUT"/>
