@@ -26,7 +26,7 @@ class ProtoSerializer extends SerializerWithStringManifest {
 
   override def toBinary(o: AnyRef): Array[Byte] =
     o match {
-      case e: PStateChangedEvent     => println("SERIALIZER"); e.toByteArray
+      case e: PStateChangedEvent     => e.toByteArray
       case e: PMessageSentEvent      => e.toByteArray
       case e: PMessageConfirmedEvent => e.toByteArray
       case _                         => throw new NotSerializableException(s"Unable to handle object: $o")
