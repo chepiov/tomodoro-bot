@@ -8,9 +8,9 @@ import org.chepiov.tomodoro.actors.persistence.userPersistence.PStateChangedEven
 
 class ProtoSerializer extends SerializerWithStringManifest {
 
-  final val StateChangedEventManifest     = classOf[PStateChangedEvent].getName
-  final val MessageSendEventManifest      = classOf[PMessageSentEvent].getName
-  final val MessageConfirmedEventManifest = classOf[PMessageConfirmedEvent].getName
+  final val stateChangedEventManifest     = classOf[PStateChangedEvent].getName
+  final val messageSendEventManifest      = classOf[PMessageSentEvent].getName
+  final val messageConfirmedEventManifest = classOf[PMessageConfirmedEvent].getName
 
   override def identifier: Int = 42
 
@@ -18,10 +18,10 @@ class ProtoSerializer extends SerializerWithStringManifest {
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef =
     manifest match {
-      case StateChangedEventManifest     => PStateChangedEvent.parseFrom(bytes)
-      case MessageSendEventManifest      => PMessageSentEvent.parseFrom(bytes)
-      case MessageConfirmedEventManifest => PMessageConfirmedEvent.parseFrom(bytes)
-      case _                             => throw new NotSerializableException(s"Unable to handle manifest: $manifest")
+      case `stateChangedEventManifest`     => PStateChangedEvent.parseFrom(bytes)
+      case `messageSendEventManifest`      => PMessageSentEvent.parseFrom(bytes)
+      case `messageConfirmedEventManifest` => PMessageConfirmedEvent.parseFrom(bytes)
+      case _                               => throw new NotSerializableException(s"Unable to handle manifest: $manifest")
     }
 
   override def toBinary(o: AnyRef): Array[Byte] =
