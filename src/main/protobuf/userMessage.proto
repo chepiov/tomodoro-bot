@@ -2,8 +2,39 @@ syntax = "proto2";
 option java_package = "org.chepiov.tomodoro.actors.persistence";
 option optimize_for = SPEED;
 
+message PReplyButtons {
+    repeated string buttons = 1;
+}
+
+message PReplyKeyboard {
+    repeated PReplyButtons rows = 1;
+}
+
+message PInlineButton {
+    required string text = 1;
+    required string callbackData = 2;
+}
+
+message PInlineButtons {
+    repeated PInlineButton buttons = 1;
+}
+
+message PInlineKeyboard {
+    repeated PInlineButtons rows = 1;
+}
+
+message PSendMessage {
+    required uint64 chatId = 1;
+    required string text = 2;
+    oneof replyMarkup {
+        PReplyKeyboard replyKeyboard = 3;
+        PInlineKeyboard inlineKeyboard = 4;
+    }
+    required string parseMode = 5;
+}
+
 message PMessageSentEvent {
-    required bytes jsonMessage = 1;
+    required PSendMessage message = 1;
 }
 
 message PMessageConfirmedEvent {

@@ -1,20 +1,19 @@
 package org.chepiov.tomodoro.actors.persistence
 
 import java.io.NotSerializableException
-import java.nio.charset.Charset
 
 import akka.persistence.journal.{EventAdapter, EventSeq}
 import cats.syntax.option._
-import com.google.protobuf.ByteString
 import org.chepiov.tomodoro.actors.UserActor.{MessageConfirmedEvent, MessageSentEvent}
-import org.chepiov.tomodoro.actors.persistence.userMessage.{PMessageConfirmedEvent, PMessageSentEvent}
+import org.chepiov.tomodoro.actors.persistence.userMessage.PSendMessage.ReplyMarkup
+import org.chepiov.tomodoro.actors.persistence.userMessage._
 import org.chepiov.tomodoro.actors.persistence.userPersistence.PCommand.Discriminator._
 import org.chepiov.tomodoro.actors.persistence.userPersistence.PSettingsUpdate.Discriminator._
 import org.chepiov.tomodoro.actors.persistence.userPersistence.PStatus.Discriminator._
 import org.chepiov.tomodoro.actors.persistence.userPersistence._
 import org.chepiov.tomodoro.algebras.Iso
 import org.chepiov.tomodoro.algebras.Iso.syntax._
-import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
+import org.chepiov.tomodoro.algebras.Telegram.{apply => _, _}
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 
@@ -158,17 +157,48 @@ case object ProtoEventAdapter {
         StateChangedEvent(b.chatId, b.state.unwrap, b.cmd.unwrap)
     }
 
+  implicit val sendMessageIso: Iso[TSendMessage, PSendMessage] =
+    new Iso[TSendMessage, PSendMessage] {
+
+      override def wrap(a: TSendMessage): PSendMessage = {
+        val markup = a.replyMarkup match {
+          case Some(TReplyKeyboardMarkup(keyboard)) =>
+            val buttons = keyboard.map(k => PReplyButtons(k.map(_.text)))
+            ReplyMarkup.ReplyKeyboard(PReplyKeyboard(buttons))
+          case Some(TInlineKeyboardMarkup(keyboard)) =>
+            val buttons = keyboard.map(k => PInlineButtons(k.map(b => PInlineButton(b.text, b.callbackData))))
+            ReplyMarkup.InlineKeyboard(PInlineKeyboard(buttons))
+          case None => ReplyMarkup.Empty
+        }
+        PSendMessage(a.chatId, a.text, a.parseMode, markup)
+      }
+
+      override def unwrap(b: PSendMessage): TSendMessage = {
+        val markup = b.replyMarkup match {
+          case ReplyMarkup.ReplyKeyboard(keyboard) =>
+            val buttons = keyboard.rows
+              .map(r => r.buttons.map(text => TKeyboardButton(text)).toList)
+              .toList
+            TReplyKeyboardMarkup(buttons).some
+          case ReplyMarkup.InlineKeyboard(keyboard) =>
+            val buttons = keyboard.rows
+              .map(r => r.buttons.map(button => TInlineKeyboardButton(button.text, button.callbackData)).toList)
+              .toList
+            TInlineKeyboardMarkup(buttons).some
+          case ReplyMarkup.Empty =>
+            none[TReplyMarkup]
+        }
+        TSendMessage(b.chatId, b.text, markup, b.parseMode)
+      }
+    }
+
   implicit val messageSentEventIso: Iso[MessageSentEvent, PMessageSentEvent] =
     new Iso[MessageSentEvent, PMessageSentEvent] {
-      import org.chepiov.tomodoro.interpreters.TelegramJsonSupport._
-      import spray.json._
-      val charset: Charset = Charset.forName("UTF-8")
-
       override def wrap(a: MessageSentEvent): PMessageSentEvent =
-        PMessageSentEvent(ByteString.copyFrom(a.message.toJson.compactPrint, charset))
+        PMessageSentEvent(a.message.wrap)
 
       override def unwrap(b: PMessageSentEvent): MessageSentEvent =
-        MessageSentEvent(b.jsonMessage.toString(charset).parseJson.convertTo[TSendMessage])
+        MessageSentEvent(b.message.unwrap)
     }
 
   implicit val messageConfirmedEventIso: Iso[MessageConfirmedEvent, PMessageConfirmedEvent] =
