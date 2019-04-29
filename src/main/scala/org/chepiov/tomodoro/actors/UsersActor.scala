@@ -39,18 +39,6 @@ class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Try[Unit]], activity
   private def createUser(chatId: Long): ActorRef = {
     val messengerActor = actorOf(MessengerActor.props(messenger), s"messenger-$chatId")
 
-    val userActorProps = UserActor.props(chatId, system.actorSelection(messengerActor.path))
-    val userActorSupervisorProps = BackoffSupervisor.props(
-      BackoffOpts.onStop(
-        userActorProps,
-        childName = s"user-$chatId",
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2
-      )
-    )
-    val userActorSupervisor = context.actorOf(userActorSupervisorProps, name = s"user-supervisor-$chatId")
-
     val userActivityActorProps = UserActivityActor.props(chatId, activity)
     val userActivityActorSupervisorProps = BackoffSupervisor.props(
       BackoffOpts.onStop(
@@ -63,7 +51,17 @@ class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Try[Unit]], activity
     )
     context.actorOf(userActivityActorSupervisorProps, name = s"user-activity-supervisor-$chatId")
 
-    userActorSupervisor
+    val userActorProps = UserActor.props(chatId, system.actorSelection(messengerActor.path))
+    val userActorSupervisorProps = BackoffSupervisor.props(
+      BackoffOpts.onStop(
+        userActorProps,
+        childName = s"user-$chatId",
+        minBackoff = 3.seconds,
+        maxBackoff = 30.seconds,
+        randomFactor = 0.2
+      )
+    )
+    context.actorOf(userActorSupervisorProps, name = s"user-supervisor-$chatId")
   }
 
   override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(loggingEnabled = true) {
@@ -77,5 +75,4 @@ case object UsersActor {
     Props(new UsersActor(chat, stat))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)
-
 }

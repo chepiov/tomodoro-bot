@@ -1,0 +1,11 @@
+syntax = "proto2";
+option java_package = "org.chepiov.tomodoro.actors.persistence";
+option optimize_for = SPEED;
+
+message PMessageSentEvent {
+    required bytes jsonMessage = 1;
+}
+
+message PMessageConfirmedEvent {
+    required uint64 deliveryId = 1;
+}

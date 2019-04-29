@@ -4,6 +4,7 @@ import java.time.{Instant, OffsetDateTime, ZoneOffset}
 import java.util.UUID
 
 import cats.effect.{Async, ContextShift, Resource, Sync}
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -43,9 +44,7 @@ class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repo
 case object RepositoryInterpreter {
 
   def apply[I[_]: Applicative, F[_]: Logger: Async: ContextShift](xa: Transactor[F]): I[Repository[F]] =
-    for {
-      _ <- Applicative[I].unit
-    } yield new RepositoryInterpreter[F](xa)
+    (new RepositoryInterpreter[F](xa): Repository[F]).pure[I]
 
   def apply[F[_]: Async: ContextShift](xa: Transactor[F]): F[Repository[F]] =
     for {

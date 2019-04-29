@@ -101,6 +101,7 @@ class UserActor(
     case RecoveryCompleted =>
       timerState(state.status)
       log.debug(s"[$chatId] Recovering completed. Current state: $state")
+    case s => log.debug(s"DAFUUUCK: $s")
   }
 
   private def timerState(status: Status): Unit =

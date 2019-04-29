@@ -1,0 +1,70 @@
+syntax = "proto2";
+option java_package = "org.chepiov.tomodoro.actors.persistence";
+option optimize_for = SPEED;
+
+message PUserSettings {
+    required uint32 duration = 1;
+    required uint32 shortBreak = 2;
+    required uint32 longBreak = 3;
+    required uint32 amount = 4;
+}
+
+message PStatus {
+    required uint32 remaining = 1;
+    required uint64 startTime = 2;
+    enum Discriminator {
+        WAITING_WORK = 1;
+        WAITING_BREAK = 2;
+        WORKING = 3;
+        BREAKING = 4;
+        WORK_SUSPENDED = 5;
+        BREAK_SUSPENDED = 6;
+    }
+    required Discriminator discriminator = 3;
+    optional uint64 endTime = 4;
+    optional uint64 suspend = 5;
+}
+
+message PSettingsUpdate {
+    optional uint64 startedAt = 1;
+    enum Discriminator {
+        DURATION = 1;
+        SHORT_BREAK = 2;
+        LONG_BREAK = 3;
+        AMOUNT = 4;
+        NOT = 5;
+    }
+    required Discriminator discriminator = 2;
+}
+
+message PUserState {
+    required PUserSettings settings = 1;
+    required PStatus status = 2;
+    required PSettingsUpdate settingsUpdate = 3;
+}
+
+message PCommand {
+    required uint64 time = 1;
+    enum Discriminator {
+        CONTINUE = 1;
+        FINISH = 2;
+        SUSPEND = 3;
+        RESET = 4;
+        SKIP = 5;
+        SET_SETTINGS = 6;
+        AWAIT_CHANGING_DURATION = 7;
+        AWAIT_CHANGING_LONG_BREAK = 8;
+        AWAIT_CHANGING_SHORT_BREAK = 9;
+        AWAIT_CHANGING_AMOUNT = 10;
+        SET_SETTINGS_VALUE = 11;
+    }
+    required Discriminator discriminator = 2;
+    optional uint32 settingValue = 3;
+
+}
+
+message PStateChangedEvent {
+    required uint64 chatId = 1;
+    required PUserState state = 2;
+    required PCommand cmd = 3;
+}

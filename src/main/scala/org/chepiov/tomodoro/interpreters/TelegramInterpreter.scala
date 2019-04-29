@@ -127,7 +127,7 @@ class TelegramInterpreter[F[_]: Logger: Async](config: TelegramConfig, actorSyst
     }
 }
 
-private[interpreters] case object TelegramJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
+case object TelegramJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   import spray.json._
 
   implicit val replyKeyboardButton: RootJsonFormat[TKeyboardButton] = jsonFormat1(TKeyboardButton)

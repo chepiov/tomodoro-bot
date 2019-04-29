@@ -4,6 +4,7 @@ import java.time.OffsetDateTime
 
 import enumeratum.EnumEntry.Uppercase
 import enumeratum.{Enum, EnumEntry}
+import simulacrum.typeclass
 
 import scala.collection.immutable
 
@@ -12,6 +13,7 @@ import scala.collection.immutable
   *
   * @tparam F effect
   */
+@typeclass
 trait Repository[F[_]] {
   import Repository._
 

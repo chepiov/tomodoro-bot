@@ -7,7 +7,12 @@ enablePlugins(JavaAppPackaging)
 wartremoverErrors ++= Warts.unsafe
 wartremoverExcluded +=
   baseDirectory.value / "src" / "main" / "scala" / "org" / "chepiov" / "tomodoro" / "actors"
+wartremoverExcluded +=  sourceManaged.value / "main" / "org" / "chepiov" / "tomodoro" / "actors"
 wartremoverErrors -= Wart.DefaultArguments
+
+PB.targets in Compile := Seq(
+  scalapb.gen() -> (sourceManaged in Compile).value
+)
 
 libraryDependencies += "com.github.mpilquist"      %% "simulacrum"                   % "0.15.0"
 libraryDependencies += "org.typelevel"             %% "cats-effect"                  % "1.2.0"

@@ -8,7 +8,10 @@ import akka.stream.scaladsl.Sink
 import akka.stream.{ActorMaterializer, Materializer}
 import cats.effect.Effect
 import cats.effect.syntax.effect._
+import org.chepiov.tomodoro.actors.persistence.userPersistence.PStateChangedEvent
 import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
+import org.chepiov.tomodoro.actors.persistence.ProtoEventAdapter._
+import org.chepiov.tomodoro.algebras.Iso.syntax._
 
 import scala.util.{Failure, Success, Try}
 
@@ -47,6 +50,11 @@ class UserActivityActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent 
       log.debug(s"[$chatId] Consuming will be started from $sequenceNr")
       statJournal
         .eventsByPersistenceId(s"user-$chatId", sequenceNr, Long.MaxValue)
+        .map {
+          case env @ EventEnvelope(_, _, _, event: PStateChangedEvent) =>
+            env.copy(event = event.unwrap[StateChangedEvent])
+          case env => env
+        }
         .runWith(Sink.actorRefWithAck(self, StreamInitialized(sequenceNr), Ack, StreamCompleted, StreamFailure))
       ()
     case StreamInitialized(nr) =>
@@ -72,7 +80,6 @@ class UserActivityActor[F[_]: Effect](chatId: Long, consumer: StateChangedEvent 
       log.error(e, s"[$chatId] Error during consuming")
     case m =>
       log.warning(s"[$chatId] Stat actor should not receive any commands. Sender: ${sender()}, message: $m")
-
   }
 }
 
