@@ -2,6 +2,7 @@ package org.chepiov.tomodoro.interpreters
 
 import akka.actor.{ActorRef, ActorSystem}
 import cats.effect.{Async, Effect}
+import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
@@ -11,7 +12,6 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.actors.UsersActor
 import org.chepiov.tomodoro.actors.UsersActor.GetUser
-import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.chepiov.tomodoro.algebras.{Repository, Telegram, User, Users}
 import org.chepiov.tomodoro.programs.UserActivity
 import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
@@ -38,7 +38,7 @@ case object UsersInterpreter {
   ): I[Users[F]] = {
     for {
       _          <- Applicative[I].unit
-      usersActor = actorSystem.actorOf(UsersActor.props(chat(telegram), statistic(repository)), "users")
+      usersActor = actorSystem.actorOf(UsersActor.props(telegram.sendMessage, statistic(repository)), "users")
     } yield new UsersInterpreter(usersActor)
   }
 
@@ -52,23 +52,16 @@ case object UsersInterpreter {
       u                            <- apply[F, F](telegram, repository, actorSystem)
     } yield u
 
-  private def chat[F[_]: ApplicativeError[?[_], Throwable]](telegram: Telegram[F]): TSendMessage => F[Try[Unit]] =
-    msg =>
-      telegram.sendMessage(msg) *> Applicative[F].pure(Try(())).handleErrorWith { e =>
-        Applicative[F].pure(Failure(e))
-      }
-
   private def statistic[F[_]: ApplicativeError[?[_], Throwable]](
       repository: Repository[F]
   ): StateChangedEvent => F[Try[Unit]] =
     event => {
       UserActivity.createLog(event) match {
-        case Some(log) =>
-          val result = repository.addLog(log)
-          result *> Applicative[F].pure(Try(())).handleErrorWith { e =>
-            Applicative[F].pure(Failure(e))
-          }
-        case None => Applicative[F].pure(Success(()))
+        case Some(log) => (repository.addLog(log) *> success.pure).handleError(failure)
+        case None      => success.pure
       }
     }
+
+  private val success: Try[Unit]              = Success(())
+  private val failure: Throwable => Try[Unit] = e => Failure[Unit](e)
 }

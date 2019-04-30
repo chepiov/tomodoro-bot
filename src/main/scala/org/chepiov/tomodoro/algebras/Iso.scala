@@ -40,8 +40,7 @@ case object Iso {
     def apply[T](x: T): F[T]
 
     implicit def toIso[T]: Iso[T, F[T]] = new Iso[T, F[T]] {
-      def wrap(a: T): F[T] = apply(a)
-
+      def wrap(a: T): F[T]   = apply(a)
       def unwrap(b: F[T]): T = b.value
     }
   }

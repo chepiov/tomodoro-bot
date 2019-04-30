@@ -16,7 +16,7 @@ import scala.util.Try
   * @param messenger user messenger
   * @param activity user activity recorder
   */
-class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Try[Unit]], activity: StateChangedEvent => F[Try[Unit]])
+class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Unit], activity: StateChangedEvent => F[Try[Unit]])
     extends Actor with ActorLogging {
 
   import UsersActor._
@@ -71,8 +71,8 @@ class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Try[Unit]], activity
 
 case object UsersActor {
 
-  def props[F[_]: Effect](chat: TSendMessage => F[Try[Unit]], stat: StateChangedEvent => F[Try[Unit]]): Props =
-    Props(new UsersActor(chat, stat))
+  def props[F[_]: Effect](messenger: TSendMessage => F[Unit], stat: StateChangedEvent => F[Try[Unit]]): Props =
+    Props(new UsersActor(messenger, stat))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)
 }

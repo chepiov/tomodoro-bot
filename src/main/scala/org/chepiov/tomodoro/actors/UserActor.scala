@@ -51,6 +51,8 @@ class UserActor(
         confirmDelivery(evt.deliveryId)
         log.debug(s"[$chatId] Message delivered")
       }
+    case ChatMsgError(deliveryId, e) =>
+      log.error(e, s"Can't deliver message, deliveryId: $deliveryId")
     case Failure(e) =>
       log.error(e, "Probably can't deliver message")
     case UnconfirmedWarning(unconfirmed) =>
@@ -141,7 +143,13 @@ case object UserActor {
 
   final case class ChatMsg(deliveryId: Long, msg: TSendMessage)
 
-  final case class ChatMsgConfirm(deliveryId: Long)
+  sealed trait ChatMsgResult {
+    def deliveryId: Long
+  }
+
+  final case class ChatMsgConfirm(deliveryId: Long) extends ChatMsgResult
+
+  final case class ChatMsgError(deliveryId: Long, ex: Throwable) extends ChatMsgResult
 
   private def now: Long = OffsetDateTime.now().toEpochSecond
 

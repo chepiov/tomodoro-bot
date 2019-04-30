@@ -2,7 +2,7 @@ package org.chepiov.tomodoro.actors.persistence
 
 import java.io.NotSerializableException
 
-import akka.persistence.journal.{EventAdapter, EventSeq}
+import akka.persistence.journal.{EventSeq, ReadEventAdapter, WriteEventAdapter}
 import cats.syntax.option._
 import org.chepiov.tomodoro.actors.UserActor.{MessageConfirmedEvent, MessageSentEvent}
 import org.chepiov.tomodoro.actors.persistence.userMessage.PSendMessage.ReplyMarkup
@@ -17,7 +17,7 @@ import org.chepiov.tomodoro.algebras.Telegram.{apply => _, _}
 import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.programs.UserActivity.StateChangedEvent
 
-class ProtoEventAdapter extends EventAdapter {
+class ProtoWriteEventAdapter extends WriteEventAdapter {
   import ProtoEventAdapter._
 
   override def manifest(event: Any): String = ""
@@ -28,6 +28,10 @@ class ProtoEventAdapter extends EventAdapter {
     case m: MessageConfirmedEvent => m.wrap[PMessageConfirmedEvent]
     case e                        => e
   }
+}
+
+class ProtoReadEventAdapter extends ReadEventAdapter {
+  import ProtoEventAdapter._
 
   override def fromJournal(event: Any, manifest: String): EventSeq =
     event match {

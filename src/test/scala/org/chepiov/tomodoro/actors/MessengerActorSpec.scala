@@ -4,11 +4,9 @@ import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.effect.IO
 import com.typesafe.config.ConfigFactory
-import org.chepiov.tomodoro.actors.UserActor.{ChatMsg, ChatMsgConfirm}
+import org.chepiov.tomodoro.actors.UserActor.{ChatMsg, ChatMsgConfirm, ChatMsgError}
 import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-
-import scala.util.{Failure, Success}
 
 class MessengerActorSpec
     extends TestKit(ActorSystem("test-system", ConfigFactory.load("application-persistence-test"))) with WordSpecLike
@@ -21,7 +19,7 @@ class MessengerActorSpec
   "MessengerActor" should {
     "deliver message to user" in {
 
-      val actor = system.actorOf(MessengerActor.props[IO](_ => IO(Success(()))))
+      val actor = system.actorOf(MessengerActor.props[IO](_ => IO.unit))
 
       actor ! ChatMsg(1L, TSendMessage(1L, ""))
 
@@ -30,11 +28,11 @@ class MessengerActorSpec
 
     "handle error" in {
 
-      val actor = system.actorOf(MessengerActor.props[IO](_ => IO(Failure[Unit](new RuntimeException()))))
+      val actor = system.actorOf(MessengerActor.props[IO](_ => IO.raiseError(new RuntimeException())))
 
       actor ! ChatMsg(1L, TSendMessage(1L, ""))
 
-      expectMsgType[akka.actor.Status.Failure]
+      expectMsgType[ChatMsgError]
     }
   }
 }
