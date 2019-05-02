@@ -8,13 +8,15 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.option._
 import org.chepiov.tomodoro.algebras.Telegram._
-import org.chepiov.tomodoro.algebras.User.{apply => _, _}
+import org.chepiov.tomodoro.algebras.User._
 import org.chepiov.tomodoro.algebras._
+import org.chepiov.tomodoro.programs.UserMessageData.SettingsData._
 import org.scalatest.{Matchers, WordSpecLike}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   import TomodoroInterpreterSpec._
 
@@ -59,7 +61,58 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
         _                           <- tomodoro.handleUpdate(TUpdate(6L, TMessage(6L, TChat(1L), "42".some).some, none))
         (commands, _)               <- userState.get
 
-      } yield commands shouldBe List(Continue(0L), Suspend(0L), Reset(0L), Skip(0L), SetSettings(0L), SetSettingsValue(0L, 42))
+      } yield
+        commands shouldBe List(
+          Continue(0L),
+          Suspend(0L),
+          Reset(0L),
+          Skip(0L),
+          SetSettings(0L),
+          SetSettingsValue(0L, 42)
+        )
+      program.unsafeRunSync()
+    }
+  }
+
+  it should {
+    "handle settings callback query correctly" in {
+      val program = for {
+        userState                       <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
+        user                            = new UserIO(userState)
+        users                           = new UsersIO(user)
+        statisticState                  <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
+        statistic                       = new StatisticIO(statisticState)
+        telegramState                   <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
+        telegram                        = new TelegramIO(telegramState)
+        implicit0(timer: Timer[IO])     = constTimer
+        tomodoro                        <- TomodoroInterpreter[IO](users, statistic, telegram)
+        user                            = TUser(1L, isBot = false, "test", none, none)
+        message                         = TMessage(1L, TChat(1L), "".some)
+        durationQuery                   = TCallbackQuery("id1", user, message.some, SettingsDurationData.entryName.some)
+        shortQuery                      = TCallbackQuery("id2", user, message.some, SettingsShortBreakData.entryName.some)
+        longQuery                       = TCallbackQuery("id3", user, message.some, SettingsLongBreakData.entryName.some)
+        amountQuery                     = TCallbackQuery("id4", user, message.some, SettingsAmountData.entryName.some)
+        _                               <- tomodoro.handleUpdate(TUpdate(1L, none, durationQuery.some))
+        _                               <- tomodoro.handleUpdate(TUpdate(1L, none, shortQuery.some))
+        _                               <- tomodoro.handleUpdate(TUpdate(1L, none, longQuery.some))
+        _                               <- tomodoro.handleUpdate(TUpdate(1L, none, amountQuery.some))
+        (commands, _)                   <- userState.get
+        TelegramState(_, answers, _, _) <- telegramState.get
+      } yield {
+        commands shouldBe List(
+          AwaitChangingDuration(0L),
+          AwaitChangingShortBreak(0L),
+          AwaitChangingLongBreak(0L),
+          AwaitChangingAmount(0L)
+        )
+
+        answers shouldBe List(
+          TCallbackAnswer("id1"),
+          TCallbackAnswer("id2"),
+          TCallbackAnswer("id3"),
+          TCallbackAnswer("id4")
+        )
+      }
       program.unsafeRunSync()
     }
   }
@@ -70,6 +123,7 @@ case object TomodoroInterpreterSpec {
   object constTimer extends Timer[IO] {
     private val sc = Executors.newScheduledThreadPool(3)
     private val ec = ExecutionContext.fromExecutor(sc)
+
     override val clock: Clock[IO] =
       new Clock[IO] {
         override def realTime(unit: TimeUnit): IO[Long]  = 0L.pure[IO]
@@ -127,6 +181,7 @@ case object TomodoroInterpreterSpec {
     def addEdit(m: TEditMessage): TelegramState      = self.copy(edit = edit :+ m)
     def addMe: TelegramState                         = self.copy(me = me + 1)
   }
+
   class TelegramIO(state: Ref[IO, TelegramState]) extends Telegram[IO] {
     def sendMessage(message: TSendMessage): IO[Unit]           = state.update(_ addSend message)
     def answerCallbackQuery(answer: TCallbackAnswer): IO[Unit] = state.update(_ addAnswer answer)
