@@ -133,9 +133,9 @@ case object UserActor {
   ): Props =
     Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
 
-  final case class CommandMsg(cmd: Command, ask: () => Unit)
+  final case class CommandMsg(cmd: Command, ack: () => Unit)
 
-  final case class QueryMsg(query: UserInfoQuery, ask: () => Unit)
+  final case class QueryMsg(query: UserInfoQuery, ack: () => Unit)
 
   final case class MessageSentEvent(message: TSendMessage)
 
