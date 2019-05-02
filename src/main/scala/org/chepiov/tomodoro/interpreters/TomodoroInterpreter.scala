@@ -1,9 +1,7 @@
 package org.chepiov.tomodoro.interpreters
 
-import java.time.OffsetDateTime
-
 import cats.Monad
-import cats.effect.Sync
+import cats.effect.{Sync, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
@@ -15,9 +13,10 @@ import org.chepiov.tomodoro.algebras.{Statistic, Telegram, Tomodoro, Users}
 import org.chepiov.tomodoro.programs.UserMessageData._
 import org.chepiov.tomodoro.programs.UserMessages._
 
+import scala.concurrent.duration.SECONDS
 import scala.util.Try
 
-class TomodoroInterpreter[F[_]: Logger: Monad](
+class TomodoroInterpreter[F[_]: Logger: Monad: Timer](
     users: Users[F],
     statistic: Statistic[F],
     telegram: Telegram[F]
@@ -43,7 +42,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
       case settingsValue((chatId, value))                                  => advance(chatId, SetSettingsValue.apply(_, value))
       case settingsCallbackQuery(chatId, callbackId, cmd) =>
         for {
-          _ <- advance(chatId, _ => cmd)
+          _ <- advance(chatId, cmd)
           r <- telegram.answerCallbackQuery(TCallbackAnswer(callbackId))
         } yield r
       case statsCallbackQuery(chatId, callbackId, statsType) =>
@@ -81,6 +80,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
   private def advance(chatId: Long, cmd: Long => UserCommand): F[Unit] =
     for {
       user    <- users.getOrCreateUser(chatId)
+      now     <- Timer[F].clock.realTime(SECONDS)
       command = cmd(now)
       _       <- Logger[F].debug(s"[$chatId] Received $command command")
       r       <- user.advance(command)
@@ -116,7 +116,7 @@ class TomodoroInterpreter[F[_]: Logger: Monad](
 
 case object TomodoroInterpreter {
 
-  def apply[I[_]: Monad, F[_]: Logger: Monad](
+  def apply[I[_]: Monad, F[_]: Logger: Monad: Timer](
       users: Users[F],
       statistic: Statistic[F],
       telegram: Telegram[F]
@@ -126,7 +126,7 @@ case object TomodoroInterpreter {
       t: Tomodoro[F] = new TomodoroInterpreter[F](users, statistic, telegram)
     } yield t
 
-  def apply[F[_]: Sync](
+  def apply[F[_]: Sync: Timer](
       users: Users[F],
       statistic: Statistic[F],
       telegram: Telegram[F]
@@ -136,8 +136,6 @@ case object TomodoroInterpreter {
       t                            <- apply[F, F](users, statistic, telegram)
     } yield t
   }
-
-  private def now: Long = OffsetDateTime.now().toEpochSecond
 
   private object commandOrQuery {
     def unapply(update: TUpdate): Option[(Long, String)] = update match {
@@ -156,9 +154,9 @@ case object TomodoroInterpreter {
   }
 
   private object settingsCallbackQuery {
-    def unapply(update: TUpdate): Option[(Long, String, UserCommand)] = update match {
+    def unapply(update: TUpdate): Option[(Long, String, Long => UserCommand)] = update match {
       case TUpdate(_, None, Some(TCallbackQuery(callbackId, _, Some(TMessage(_, TChat(chatId), _)), Some(data)))) =>
-        SettingsData.withNameOption(data).map(d => (chatId, callbackId, d.cmd(now)))
+        SettingsData.withNameOption(data).map(d => (chatId, callbackId, d.cmd))
       case _ => none
     }
   }
