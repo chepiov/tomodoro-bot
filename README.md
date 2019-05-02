@@ -5,6 +5,7 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/a6c863b3a4fa4f1291a3e9d3db8df246)](https://www.codacy.com/app/chepiov/tomodoro-bot?utm_source=github.com&utm_medium=referral&utm_content=chepiov/tomodoro-bot&utm_campaign=Badge_Coverage)
 [![Telegram](https://img.shields.io/badge/telegram-join-green.svg)](https://telegram.me/tomodoroBot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://raw.githubusercontent.com/chepiov/tomodoro-bot/master/LICENSE)
+[![Release](https://img.shields.io/github/release/chepiov/tomodoro-bot.svg)](https://github.com/chepiov/tomodoro-bot/releases)
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
