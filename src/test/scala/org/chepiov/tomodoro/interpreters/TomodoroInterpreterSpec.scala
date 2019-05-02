@@ -52,13 +52,14 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
         implicit0(timer: Timer[IO]) = constTimer
         tomodoro                    <- TomodoroInterpreter[IO](users, statistic, telegram)
         _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "continue".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "pause".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "reset".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "skip".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "settings".some).some, none))
+        _                           <- tomodoro.handleUpdate(TUpdate(2L, TMessage(2L, TChat(1L), "pause".some).some, none))
+        _                           <- tomodoro.handleUpdate(TUpdate(3L, TMessage(3L, TChat(1L), "reset".some).some, none))
+        _                           <- tomodoro.handleUpdate(TUpdate(4L, TMessage(4L, TChat(1L), "skip".some).some, none))
+        _                           <- tomodoro.handleUpdate(TUpdate(5L, TMessage(5L, TChat(1L), "settings".some).some, none))
+        _                           <- tomodoro.handleUpdate(TUpdate(6L, TMessage(6L, TChat(1L), "42".some).some, none))
         (commands, _)               <- userState.get
 
-      } yield commands shouldBe List(Continue(0L), Suspend(0L), Reset(0L), Skip(0L), SetSettings(0L))
+      } yield commands shouldBe List(Continue(0L), Suspend(0L), Reset(0L), Skip(0L), SetSettings(0L), SetSettingsValue(0L, 42))
       program.unsafeRunSync()
     }
   }
