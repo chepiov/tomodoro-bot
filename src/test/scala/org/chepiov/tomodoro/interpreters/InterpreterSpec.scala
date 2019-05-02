@@ -1,15 +1,17 @@
 package org.chepiov.tomodoro.interpreters
 
+import java.time.OffsetDateTime
 import java.util.concurrent.Executors
 
-import cats.effect.{Clock, IO, Timer}
 import cats.effect.concurrent.Ref
+import cats.effect.{Clock, IO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.option._
+import org.chepiov.tomodoro.algebras.Repository.ActivityLog
 import org.chepiov.tomodoro.algebras.Telegram.{TCallbackAnswer, TEditMessage, TSendMessage, TUser}
 import org.chepiov.tomodoro.algebras.User.{UserCommand, UserInfoQuery}
-import org.chepiov.tomodoro.algebras.{Statistic, Telegram, User, Users}
+import org.chepiov.tomodoro.algebras._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{FiniteDuration, TimeUnit}
@@ -48,10 +50,10 @@ trait InterpreterSpec {
 
   type Activity = (Long, Int, Option[Long])
   case class StatisticState(
-    activity: List[Activity],
-    lastDay: List[Long],
-    lastWeek: List[Long],
-    lastMonth: List[Long]
+      activity: List[Activity],
+      lastDay: List[Long],
+      lastWeek: List[Long],
+      lastMonth: List[Long]
   ) { self =>
     def addActivity(a: Activity): StatisticState   = self.copy(activity = activity :+ a)
     def addLastDay(chatId: Long): StatisticState   = self.copy(lastDay = lastDay :+ chatId)
@@ -68,10 +70,10 @@ trait InterpreterSpec {
   }
 
   case class TelegramState(
-    send: List[TSendMessage],
-    answer: List[TCallbackAnswer],
-    edit: List[TEditMessage],
-    me: Int
+      send: List[TSendMessage],
+      answer: List[TCallbackAnswer],
+      edit: List[TEditMessage],
+      me: Int
   ) { self =>
     def addSend(m: TSendMessage): TelegramState      = self.copy(send = send :+ m)
     def addAnswer(a: TCallbackAnswer): TelegramState = self.copy(answer = answer :+ a)
@@ -84,5 +86,28 @@ trait InterpreterSpec {
     def answerCallbackQuery(answer: TCallbackAnswer): IO[Unit] = state.update(_ addAnswer answer)
     def editMessageText(message: TEditMessage): IO[Unit]       = state.update(_ addEdit message)
     def getMe: IO[TUser]                                       = state.update(_.addMe).as(TUser(1, isBot = true, "tomodoro", none, none))
+  }
+
+  case class RepositoryState(logs: List[ActivityLog]) { self =>
+    def addLog(log: ActivityLog): RepositoryState = self.copy(logs = logs :+ log)
+  }
+
+  class RepositoryIO(state: Ref[IO, RepositoryState]) extends Repository[IO] {
+    def findLogs(chatId: Long, offset: Long, limit: Long): IO[List[Repository.ActivityLog]] =
+      state.get.map { s =>
+        s.logs
+          .filter(log => log.chatId == chatId)
+          .sorted(Ordering.by((l: ActivityLog) => l.time).reverse)
+      }
+
+    def addLog(log: Repository.ActivityLog): IO[Unit] =
+      state.update(_ addLog log)
+
+    def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): IO[Long] =
+      state.get.map { s =>
+        s.logs
+          .count(log => log.chatId == chatId && log.time.isAfter(from) && log.time.isBefore(to))
+          .toLong
+      }
   }
 }
