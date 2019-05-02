@@ -9,8 +9,14 @@ import org.chepiov.tomodoro.algebras.Telegram.TSendMessage
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class MessengerActorSpec
-    extends TestKit(ActorSystem("test-system", ConfigFactory.load("application-persistence-test"))) with WordSpecLike
-    with Matchers with BeforeAndAfterAll with ImplicitSender {
+    extends TestKit(
+      ActorSystem(
+        "messenger-test-system",
+        ConfigFactory
+          .parseString(PersistenceSpec.config("messenger"))
+          .withFallback(ConfigFactory.load())
+      )
+    ) with WordSpecLike with Matchers with BeforeAndAfterAll with ImplicitSender with PersistenceSpec {
 
   override def afterAll: Unit = {
     TestKit.shutdownActorSystem(system)

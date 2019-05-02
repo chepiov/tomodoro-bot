@@ -32,7 +32,7 @@ class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Unit], activity: Sta
     case GetUser(chatId, ack) =>
       val userActor = createUser(chatId)
       log.debug(s"[$chatId] [re]creating user: ${userActor.path}")
-      become(behavior(chatIdToUser + ((chatId, userActor)), userToChatId + ((userActor, chatId))))
+      updateState(chatId, userActor, chatIdToUser, userToChatId)
       ack(userActor)
   }
 
@@ -67,12 +67,20 @@ class UsersActor[F[_]: Effect](messenger: TSendMessage => F[Unit], activity: Sta
   override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(loggingEnabled = true) {
     case _ => Restart
   }
+
+  private[actors] def updateState(
+      chatId: Long,
+      userActor: ActorRef,
+      chatIdToUser: Map[Long, ActorRef],
+      userToChatId: Map[ActorRef, Long]
+  ): Unit =
+    become(behavior(chatIdToUser + ((chatId, userActor)), userToChatId + ((userActor, chatId))))
 }
 
 case object UsersActor {
 
-  def props[F[_]: Effect](messenger: TSendMessage => F[Unit], stat: StateChangedEvent => F[Try[Unit]]): Props =
-    Props(new UsersActor(messenger, stat))
+  def props[F[_]: Effect](messenger: TSendMessage => F[Unit], activity: StateChangedEvent => F[Try[Unit]]): Props =
+    Props(new UsersActor(messenger, activity))
 
   final case class GetUser(chatId: Long, ack: ActorRef => Unit)
 }

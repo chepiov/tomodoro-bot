@@ -1,8 +1,5 @@
 package org.chepiov.tomodoro.actors
 
-import java.io.IOException
-import java.nio.file._
-import java.nio.file.attribute.BasicFileAttributes
 import java.time.OffsetDateTime
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSelection, ActorSystem, Identify, Props}
@@ -17,33 +14,15 @@ import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class UserActorSpec
-    extends TestKit(ActorSystem("test-system", ConfigFactory.load("application-persistence-test"))) with WordSpecLike
-    with Matchers with BeforeAndAfterAll with ImplicitSender {
-  import UserActorSpec._
-
-  override def beforeAll(): Unit = {
-    List(
-      "akka.persistence.journal.leveldb.dir",
-      "akka.persistence.snapshot-store.local.dir"
-    ).filter { s =>
-      val path = Paths.get(system.settings.config.getString(s))
-      Files.exists(path) && Files.isDirectory(path)
-    }.foreach { s =>
-      Files.walkFileTree(
-        Paths.get(system.settings.config.getString(s)),
-        new SimpleFileVisitor[Path] {
-          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-            Files.deleteIfExists(file)
-            FileVisitResult.CONTINUE
-          }
-          override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-            Files.deleteIfExists(dir)
-            FileVisitResult.CONTINUE
-          }
-        }
+    extends TestKit(
+      ActorSystem(
+        "user-test-system",
+        ConfigFactory
+          .parseString(PersistenceSpec.config("user"))
+          .withFallback(ConfigFactory.load())
       )
-    }
-  }
+    ) with WordSpecLike with Matchers with BeforeAndAfterAll with ImplicitSender with PersistenceSpec {
+  import UserActorSpec._
 
   override def afterAll: Unit = {
     TestKit.shutdownActorSystem(system)

@@ -5,7 +5,6 @@ import akka.testkit.{ImplicitSender, TestKit}
 import cats.Id
 import cats.effect.{ContextShift, IO}
 import cats.syntax.flatMap._
-import com.typesafe.config.ConfigFactory
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.chepiov.tomodoro.actors.UserActor.{CommandMsg, QueryMsg}
@@ -24,8 +23,8 @@ import scala.concurrent.duration._
   )
 )
 class UserInterpreterSpec
-    extends TestKit(ActorSystem("test-system", ConfigFactory.load("application-persistence-test"))) with WordSpecLike
-    with Matchers with BeforeAndAfterAll with ImplicitSender {
+    extends TestKit(ActorSystem("test-system")) with WordSpecLike with Matchers with BeforeAndAfterAll
+    with ImplicitSender {
   import UserInterpreterSpec._
 
   override def afterAll: Unit = {

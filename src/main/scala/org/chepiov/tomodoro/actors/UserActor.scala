@@ -103,7 +103,6 @@ class UserActor(
     case RecoveryCompleted =>
       timerState(state.status)
       log.debug(s"[$chatId] Recovering completed. Current state: $state")
-    case s => log.debug(s"DAFUUUCK: $s")
   }
 
   private def timerState(status: Status): Unit =
@@ -126,12 +125,12 @@ case object UserActor {
 
   def props(
       chatId: Long,
-      chat: ActorSelection,
+      messenger: ActorSelection,
       timeUnit: TimeUnit = MINUTES,
       defaultSettings: UserSettings = defaultUserSettings,
       snapshotInterval: Int = 1000
   ): Props =
-    Props(new UserActor(chatId, chat, timeUnit, defaultSettings, snapshotInterval))
+    Props(new UserActor(chatId, messenger, timeUnit, defaultSettings, snapshotInterval))
 
   final case class CommandMsg(cmd: Command, ack: () => Unit)
 
