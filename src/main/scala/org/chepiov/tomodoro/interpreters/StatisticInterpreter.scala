@@ -15,7 +15,7 @@ import org.chepiov.tomodoro.programs.UserMessages._
 
 class StatisticInterpreter[F[_]: Logger: Monad](telegram: Telegram[F], repository: Repository[F]) extends Statistic[F] {
 
-  private val pageSize = 10
+  private val pageSize = 10L
 
   override def sendActivity(chatId: Long, page: Int, messageId: Option[Long] = None): F[Unit] =
     for {

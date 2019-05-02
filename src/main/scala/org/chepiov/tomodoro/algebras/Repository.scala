@@ -25,7 +25,7 @@ trait Repository[F[_]] {
     * @param limit  of logs
     * @return
     */
-  def findLogs(chatId: Long, offset: Int, limit: Int): F[List[ActivityLog]]
+  def findLogs(chatId: Long, offset: Long, limit: Long): F[List[ActivityLog]]
 
   /**
     * Adds new activity log
@@ -41,7 +41,7 @@ trait Repository[F[_]] {
     * @param from   start period
     * @param to     end period
     */
-  def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): F[Int]
+  def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): F[Long]
 }
 
 case object Repository {

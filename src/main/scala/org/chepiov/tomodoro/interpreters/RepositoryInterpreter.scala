@@ -22,7 +22,7 @@ import org.flywaydb.core.Flyway
 class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repository[F] {
   import org.chepiov.tomodoro.interpreters.{RepositorySQL => SQL}
 
-  override def findLogs(chatId: Long, offset: Int, limit: Int): F[List[ActivityLog]] =
+  override def findLogs(chatId: Long, offset: Long, limit: Long): F[List[ActivityLog]] =
     for {
       logs <- SQL.findLogs(chatId, offset, limit).to[List].transact(xa)
       _    <- Logger[F].debug(s"[$chatId] Found logs, limit: $limit, offset: $offset, size: ${logs.size}")
@@ -34,7 +34,7 @@ class RepositoryInterpreter[F[_]: Logger: Monad](xa: Transactor[F]) extends Repo
       r  <- Logger[F].debug(s"[${log.chatId}] Log added with id: $id")
     } yield r
 
-  override def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): F[Int] =
+  override def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): F[Long] =
     for {
       cnt <- SQL.countCompleted(chatId, from, to).unique.transact(xa)
       _   <- Logger[F].debug(s"[$chatId] Found $cnt completed tomodoroes between $from and $to")
@@ -103,7 +103,7 @@ case object RepositorySQL {
          VALUES(${log.chatId}, ${log.time}, ${log.descriptor}, ${log.log})
        """.update
 
-  def findLogs(chatId: Long, offset: Int, limit: Int): Query0[ActivityLog] =
+  def findLogs(chatId: Long, offset: Long, limit: Long): Query0[ActivityLog] =
     sql"""
          SELECT chat_id, time, descriptor, log
          FROM user_log
@@ -113,12 +113,12 @@ case object RepositorySQL {
          OFFSET $offset
        """.query[ActivityLog]
 
-  def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): Query0[Int] =
+  def countCompleted(chatId: Long, from: OffsetDateTime, to: OffsetDateTime): Query0[Long] =
     sql"""
          SELECT count(id)
          FROM user_log
          WHERE chat_id = $chatId
          AND time BETWEEN $from AND $to
          AND descriptor = ${TomodoroFinished: ActivityDescriptor}
-       """.query[Int]
+       """.query[Long]
 }

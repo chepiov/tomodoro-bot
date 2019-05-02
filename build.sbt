@@ -7,7 +7,7 @@ enablePlugins(JavaAppPackaging)
 wartremoverErrors ++= Warts.unsafe
 wartremoverExcluded +=
   baseDirectory.value / "src" / "main" / "scala" / "org" / "chepiov" / "tomodoro" / "actors"
-wartremoverExcluded +=  sourceManaged.value / "main" / "org" / "chepiov" / "tomodoro" / "actors"
+wartremoverExcluded += sourceManaged.value / "main" / "org" / "chepiov" / "tomodoro" / "actors"
 wartremoverErrors -= Wart.DefaultArguments
 
 PB.targets in Compile := Seq(
@@ -43,6 +43,9 @@ libraryDependencies += "com.typesafe.akka"         %% "akka-stream-testkit"     
 libraryDependencies += "com.typesafe.akka"         %% "akka-http-testkit"            % "10.1.8" % "test"
 libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8" % "test"
 libraryDependencies += "org.iq80.leveldb"          % "leveldb"                       % "0.11" % "test"
+libraryDependencies += "org.tpolecat"              %% "doobie-scalatest"             % "0.6.0" % "test"
+libraryDependencies += "com.dimafeng"              %% "testcontainers-scala"         % "0.25.0" % "test"
+libraryDependencies += "org.testcontainers"        % "postgresql"                    % "1.11.2" % "test"
 
 addCompilerPlugin("org.scalamacros" % "paradise"            % "2.1.0" cross CrossVersion.full)
 addCompilerPlugin("org.typelevel"   %% "kind-projector"     % "0.10.0")
