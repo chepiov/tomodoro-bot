@@ -22,22 +22,27 @@ import scala.concurrent.duration._
 class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   import TomodoroInterpreterSpec._
 
+  private def create(): IO[(Ref[IO, UserState], Ref[IO, StatisticState], Ref[IO, TelegramState], Tomodoro[IO])] =
+    for {
+      userState                   <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
+      user                        = new UserIO(userState)
+      users                       = new UsersIO(user)
+      statisticState              <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
+      statistic                   = new StatisticIO(statisticState)
+      telegramState               <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
+      telegram                    = new TelegramIO(telegramState)
+      implicit0(timer: Timer[IO]) = constTimer
+      tomodoro                    <- TomodoroInterpreter[IO](users, statistic, telegram)
+    } yield (userState, statisticState, telegramState, tomodoro)
+
   "Tomodoro" should {
     "handle queries correctly" in {
       val program = for {
-        userState                   <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                        = new UserIO(userState)
-        users                       = new UsersIO(user)
-        statisticState              <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                   = new StatisticIO(statisticState)
-        telegramState               <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                    = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO]) = constTimer
-        tomodoro                    <- TomodoroInterpreter[IO](users, statistic, telegram)
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "state".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(2L, TMessage(2L, TChat(1L), "stats".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(3L, TMessage(3L, TChat(1L), "help".some).some, none))
-        (_, queries)                <- userState.get
+        (us, _, _, tomodoro) <- create()
+        _                    <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "state".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(2L, TMessage(2L, TChat(1L), "stats".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(3L, TMessage(3L, TChat(1L), "help".some).some, none))
+        (_, queries)         <- us.get
       } yield queries shouldBe List(GetState, GetStats, GetHelp)
       program.unsafeRunSync()
     }
@@ -46,22 +51,14 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   it should {
     "handle commands correctly" in {
       val program = for {
-        userState                   <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                        = new UserIO(userState)
-        users                       = new UsersIO(user)
-        statisticState              <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                   = new StatisticIO(statisticState)
-        telegramState               <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                    = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO]) = constTimer
-        tomodoro                    <- TomodoroInterpreter[IO](users, statistic, telegram)
-        _                           <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "continue".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(2L, TMessage(2L, TChat(1L), "pause".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(3L, TMessage(3L, TChat(1L), "reset".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(4L, TMessage(4L, TChat(1L), "skip".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(5L, TMessage(5L, TChat(1L), "settings".some).some, none))
-        _                           <- tomodoro.handleUpdate(TUpdate(6L, TMessage(6L, TChat(1L), "42".some).some, none))
-        (commands, _)               <- userState.get
+        (us, _, _, tomodoro) <- create()
+        _                    <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "continue".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(2L, TMessage(2L, TChat(1L), "pause".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(3L, TMessage(3L, TChat(1L), "reset".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(4L, TMessage(4L, TChat(1L), "skip".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(5L, TMessage(5L, TChat(1L), "settings".some).some, none))
+        _                    <- tomodoro.handleUpdate(TUpdate(6L, TMessage(6L, TChat(1L), "42".some).some, none))
+        (commands, _)        <- us.get
 
       } yield
         commands shouldBe List(
@@ -79,15 +76,7 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   it should {
     "handle settings callback query correctly" in {
       val program = for {
-        userState                       <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                            = new UserIO(userState)
-        users                           = new UsersIO(user)
-        statisticState                  <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                       = new StatisticIO(statisticState)
-        telegramState                   <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                        = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO])     = constTimer
-        tomodoro                        <- TomodoroInterpreter[IO](users, statistic, telegram)
+        (us, _, ts, tomodoro)           <- create()
         user                            = TUser(1L, isBot = false, "test", none, none)
         message                         = TMessage(1L, TChat(1L), none)
         durationQuery                   = TCallbackQuery("id1", user, message.some, SettingsDurationData.entryName.some)
@@ -98,8 +87,8 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
         _                               <- tomodoro.handleUpdate(TUpdate(2L, none, shortQuery.some))
         _                               <- tomodoro.handleUpdate(TUpdate(3L, none, longQuery.some))
         _                               <- tomodoro.handleUpdate(TUpdate(4L, none, amountQuery.some))
-        (commands, _)                   <- userState.get
-        TelegramState(_, answers, _, _) <- telegramState.get
+        (commands, _)                   <- us.get
+        TelegramState(_, answers, _, _) <- ts.get
       } yield {
         commands shouldBe List(
           AwaitChangingDuration(0L),
@@ -122,15 +111,7 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   it should {
     "handle stats callback query correctly" in {
       val program = for {
-        userState                         <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                              = new UserIO(userState)
-        users                             = new UsersIO(user)
-        statisticState                    <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                         = new StatisticIO(statisticState)
-        telegramState                     <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                          = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO])       = constTimer
-        tomodoro                          <- TomodoroInterpreter[IO](users, statistic, telegram)
+        (_, ss, ts, tomodoro)             <- create()
         user                              = TUser(1L, isBot = false, "test", none, none)
         message                           = TMessage(1L, TChat(1L), none)
         logQuery                          = TCallbackQuery("id1", user, message.some, StatsLogData.entryName.some)
@@ -141,8 +122,8 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
         _                                 <- tomodoro.handleUpdate(TUpdate(2L, none, perDayQuery.some))
         _                                 <- tomodoro.handleUpdate(TUpdate(3L, none, perWeekQuery.some))
         _                                 <- tomodoro.handleUpdate(TUpdate(4L, none, perMonthQuery.some))
-        StatisticState(as, lds, lws, lms) <- statisticState.get
-        TelegramState(_, answers, _, _)   <- telegramState.get
+        StatisticState(as, lds, lws, lms) <- ss.get
+        TelegramState(_, answers, _, _)   <- ts.get
       } yield {
         as shouldBe List((1L, 0, none))
         lds shouldBe List(1L)
@@ -163,21 +144,13 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   it should {
     "handle log callback query correctly" in {
       val program = for {
-        userState                       <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                            = new UserIO(userState)
-        users                           = new UsersIO(user)
-        statisticState                  <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                       = new StatisticIO(statisticState)
-        telegramState                   <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                        = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO])     = constTimer
-        tomodoro                        <- TomodoroInterpreter[IO](users, statistic, telegram)
+        (_, ss, ts, tomodoro)           <- create()
         user                            = TUser(1L, isBot = false, "test", none, none)
         message                         = TMessage(1L, TChat(1L), none)
         logQuery                        = TCallbackQuery("id1", user, message.some, s"${StatsLogData.entryName}:1".some)
         _                               <- tomodoro.handleUpdate(TUpdate(1L, none, logQuery.some))
-        StatisticState(as, _, _, _)     <- statisticState.get
-        TelegramState(_, answers, _, _) <- telegramState.get
+        StatisticState(as, _, _, _)     <- ss.get
+        TelegramState(_, answers, _, _) <- ts.get
       } yield {
         as shouldBe List((1L, 1, 1L.some))
 
@@ -192,17 +165,9 @@ class TomodoroInterpreterSpec extends WordSpecLike with Matchers {
   it should {
     "handle unknown message correctly" in {
       val program = for {
-        userState                    <- Ref.of[IO, (List[UserCommand], List[UserInfoQuery])]((List(), List()))
-        user                         = new UserIO(userState)
-        users                        = new UsersIO(user)
-        statisticState               <- Ref.of[IO, StatisticState](StatisticState(List(), List(), List(), List()))
-        statistic                    = new StatisticIO(statisticState)
-        telegramState                <- Ref.of[IO, TelegramState](TelegramState(List(), List(), List(), 0))
-        telegram                     = new TelegramIO(telegramState)
-        implicit0(timer: Timer[IO])  = constTimer
-        tomodoro                     <- TomodoroInterpreter[IO](users, statistic, telegram)
+        (_, _, ts, tomodoro)         <- create()
         _                            <- tomodoro.handleUpdate(TUpdate(1L, TMessage(1L, TChat(1L), "unknown".some).some, none))
-        TelegramState(send, _, _, _) <- telegramState.get
+        TelegramState(send, _, _, _) <- ts.get
       } yield send shouldBe List(UserMessages.unknownMsg(1L))
       program.unsafeRunSync()
     }
@@ -231,21 +196,14 @@ case object TomodoroInterpreterSpec {
       }
   }
 
-  class UserIO(state: Ref[IO, (List[UserCommand], List[UserInfoQuery])]) extends User[IO] {
+  type UserState = (List[UserCommand], List[UserInfoQuery])
+  class UserIO(state: Ref[IO, UserState]) extends User[IO] {
     def advance(cmd: User.UserCommand): IO[Unit]  = state.update { case (cs, qs) => (cs :+ cmd, qs) }
     def info(query: User.UserInfoQuery): IO[Unit] = state.update { case (cs, qs) => (cs, qs :+ query) }
   }
 
   class UsersIO(user: User[IO]) extends Users[IO] {
     def getOrCreateUser(chatId: Long): IO[User[IO]] = user.pure[IO]
-  }
-
-  class StatisticIO(state: Ref[IO, StatisticState]) extends Statistic[IO] {
-    def sendActivity(chatId: Long, page: Int, messageId: Option[Long]): IO[Unit] =
-      state.update(_ addActivity ((chatId, page, messageId)))
-    def sendCompletedLastDay(chatId: Long): IO[Unit]   = state.update(_ addLastDay chatId)
-    def sendCompletedLastWeek(chatId: Long): IO[Unit]  = state.update(_ addLastWeek chatId)
-    def sendCompletedLastMonth(chatId: Long): IO[Unit] = state.update(_ addLastMonth chatId)
   }
 
   type Activity = (Long, Int, Option[Long])
@@ -259,6 +217,14 @@ case object TomodoroInterpreterSpec {
     def addLastDay(chatId: Long): StatisticState   = self.copy(lastDay = lastDay :+ chatId)
     def addLastWeek(chatId: Long): StatisticState  = self.copy(lastWeek = lastWeek :+ chatId)
     def addLastMonth(chatId: Long): StatisticState = self.copy(lastMonth = lastMonth :+ chatId)
+  }
+
+  class StatisticIO(state: Ref[IO, StatisticState]) extends Statistic[IO] {
+    def sendActivity(chatId: Long, page: Int, messageId: Option[Long]): IO[Unit] =
+      state.update(_ addActivity ((chatId, page, messageId)))
+    def sendCompletedLastDay(chatId: Long): IO[Unit]   = state.update(_ addLastDay chatId)
+    def sendCompletedLastWeek(chatId: Long): IO[Unit]  = state.update(_ addLastWeek chatId)
+    def sendCompletedLastMonth(chatId: Long): IO[Unit] = state.update(_ addLastMonth chatId)
   }
 
   case class TelegramState(
